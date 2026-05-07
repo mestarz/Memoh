@@ -331,6 +331,16 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 			"DISPLAY=:99",
 		)
 	}
+	// Inject HTTP proxy into workspace containers so that apt-get / apk / curl
+	// inside the workspace can reach the internet during desktop package installation.
+	if proxy := strings.TrimSpace(os.Getenv("MEMOH_WORKSPACE_PROXY")); proxy != "" {
+		env = append(env,
+			"http_proxy="+proxy,
+			"https_proxy="+proxy,
+			"HTTP_PROXY="+proxy,
+			"HTTPS_PROXY="+proxy,
+		)
+	}
 	env = append(env, skillEnv...)
 
 	return ctr.ContainerSpec{

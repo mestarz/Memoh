@@ -571,8 +571,17 @@ display_ready() {
 . /tmp/memoh-desktop-install.sh
 
 prepare_lock=/tmp/memoh-display-prepare.lock
+prepare_lock_pid="$prepare_lock/pid"
+# Remove a stale lock left by a crashed previous prepare run
+if [ -d "$prepare_lock" ]; then
+  old_pid="$(cat "$prepare_lock_pid" 2>/dev/null || true)"
+  if [ -z "$old_pid" ] || ! kill -0 "$old_pid" 2>/dev/null; then
+    rm -rf "$prepare_lock" 2>/dev/null || true
+  fi
+fi
 if mkdir "$prepare_lock" 2>/dev/null; then
-  trap 'rmdir "$prepare_lock" 2>/dev/null || true' EXIT INT TERM
+  printf '%s\n' "$$" >"$prepare_lock_pid"
+  trap 'rm -rf "$prepare_lock" 2>/dev/null || true' EXIT INT TERM
 else
   progress 12 checking "Waiting for another desktop preparation"
   wait_i=0

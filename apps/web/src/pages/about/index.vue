@@ -1,7 +1,7 @@
 <template>
   <section class="max-w-7xl mx-auto p-4 pb-12">
     <div class="max-w-3xl mx-auto space-y-6">
-      <!-- Header: Logo + Version + Check Button -->
+      <!-- Header: Logo + Version -->
       <div class="flex items-center gap-3">
         <img
           src="/logo.svg"
@@ -27,61 +27,7 @@
             </Badge>
           </div>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          :disabled="checking"
-          @click="checkForUpdates"
-        >
-          <Spinner
-            v-if="checking"
-            class="size-3"
-          />
-          <RefreshCw
-            v-else
-            class="size-3"
-          />
-          {{ checking ? $t('about.checking') : $t('about.checkForUpdates') }}
-        </Button>
       </div>
-
-      <!-- Update Result -->
-      <template v-if="checkResult">
-        <div
-          v-if="checkResult.isUpToDate"
-          class="flex items-center gap-2 text-xs text-muted-foreground"
-        >
-          <CircleCheck class="size-3.5 text-green-500" />
-          {{ $t('about.upToDate') }}
-        </div>
-
-        <template v-else>
-          <Separator />
-
-          <div class="flex items-center gap-2">
-            <Badge class="bg-[#8B56E3] text-white hover:bg-[#8B56E3]/90">
-              {{ $t('about.newVersionAvailable', { version: checkResult.latestVersion }) }}
-            </Badge>
-          </div>
-
-          <div
-            v-if="checkResult.body"
-            class="space-y-2"
-          >
-            <h4 class="text-xs font-medium text-muted-foreground">
-              {{ $t('about.releaseNotes') }}
-            </h4>
-            <div class="prose prose-xs dark:prose-invert max-w-none *:first:mt-0 text-[0.8rem] leading-relaxed">
-              <MarkdownRender
-                :content="checkResult.body"
-                :is-dark="isDark"
-                :typewriter="false"
-                custom-id="release-notes"
-              />
-            </div>
-          </div>
-        </template>
-      </template>
 
       <section>
         <Separator class="mb-4" />
@@ -172,27 +118,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useI18n } from 'vue-i18n'
-import { toast } from 'vue-sonner'
-import { RefreshCw, ExternalLink, Github, BookOpen, MessageSquare, CircleCheck, Globe, Sun, Moon } from 'lucide-vue-next'
-import { Badge, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Separator, Spinner } from '@memohai/ui'
-import MarkdownRender from 'markstream-vue'
+import { ExternalLink, Github, BookOpen, MessageSquare, Globe, Sun, Moon } from 'lucide-vue-next'
+import { Badge, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Separator } from '@memohai/ui'
 import { useCapabilitiesStore } from '@/store/capabilities'
 import { useSettingsStore } from '@/store/settings'
 import type { Locale } from '@/i18n'
-
-const GITHUB_REPO = 'memohai/memoh'
-
-interface CheckResult {
-  isUpToDate: boolean
-  latestVersion: string
-  body: string
-  htmlUrl: string
-}
-
-const { t } = useI18n()
 
 const capabilitiesStore = useCapabilitiesStore()
 const { serverVersion, commitHash } = storeToRefs(capabilitiesStore)
@@ -202,38 +134,8 @@ const normalizedServerVersion = computed(() => normalizeVersion(serverVersion.va
 const settingsStore = useSettingsStore()
 const { language, theme } = storeToRefs(settingsStore)
 const { setLanguage, setTheme } = settingsStore
-const isDark = computed(() => settingsStore.theme === 'dark')
-
-const checking = ref(false)
-const checkResult = ref<CheckResult | null>(null)
 
 onMounted(async () => {
   await capabilitiesStore.load()
-  await checkForUpdates()
 })
-
-async function checkForUpdates() {
-  checking.value = true
-  checkResult.value = null
-  try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-
-    const tagName: string = data.tag_name ?? ''
-    const latestVersion = normalizeVersion(tagName)
-    const currentVersion = normalizeVersion(serverVersion.value)
-
-    checkResult.value = {
-      isUpToDate: latestVersion === currentVersion,
-      latestVersion,
-      body: data.body ?? '',
-      htmlUrl: data.html_url ?? `https://github.com/${GITHUB_REPO}/releases/latest`,
-    }
-  } catch {
-    toast.error(t('about.checkFailed'))
-  } finally {
-    checking.value = false
-  }
-}
 </script>

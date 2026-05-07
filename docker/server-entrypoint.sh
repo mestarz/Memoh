@@ -26,8 +26,17 @@ if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
 fi
 
 # ---- Start containerd in background ----
+# If MEMOH_PULL_PROXY is set, pass it only to containerd for image pulls.
+# The memoh-server process does NOT inherit the proxy.
 mkdir -p /run/containerd
-containerd &
+if [ -n "${MEMOH_PULL_PROXY:-}" ]; then
+  echo "Starting containerd with pull proxy: $MEMOH_PULL_PROXY"
+  env HTTP_PROXY="$MEMOH_PULL_PROXY" HTTPS_PROXY="$MEMOH_PULL_PROXY" \
+    NO_PROXY="${NO_PROXY:-localhost,127.0.0.1}" \
+    containerd &
+else
+  containerd &
+fi
 CONTAINERD_PID=$!
 
 echo "Waiting for containerd..."

@@ -646,6 +646,14 @@ func provideUsersHandler(log *slog.Logger, accountService *accounts.Service, ide
 	return handlers.NewUsersHandler(log, accountService, identityService, botService, routeService, channelStore, channelLifecycle, channelManager, registry)
 }
 
+func provideAvatarHandler(log *slog.Logger, cfg config.Config) *handlers.AvatarHandler {
+	dataRoot := cfg.Workspace.DataRoot
+	if dataRoot == "" {
+		dataRoot = config.DefaultDataRoot
+	}
+	return handlers.NewAvatarHandler(log, dataRoot)
+}
+
 func provideWebHandler(channelManager *channel.Manager, channelStore *channel.Store, chatService *conversation.Service, hub *local.RouteHub, botService *bots.Service, accountService *accounts.Service, resolver *flow.Resolver, mediaService *media.Service, audioService *audiopkg.Service, settingsService *settings.Service) *handlers.LocalChannelHandler {
 	h := handlers.NewLocalChannelHandler(local.WebType, channelManager, channelStore, chatService, hub, botService, accountService)
 	h.SetResolver(resolver)

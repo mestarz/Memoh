@@ -2,6 +2,8 @@
   "common": {
     "confirm": "Confirm",
     "cancel": "Cancel",
+    "or": "or",
+    "uploading": "Uploading…",
     "back": "Back",
     "save": "Save",
     "create": "Create",
@@ -824,6 +826,7 @@
     "displayNamePlaceholder": "Give your bot a name",
     "avatarUrl": "Avatar URL",
     "avatarUrlPlaceholder": "Enter avatar image URL",
+    "uploadAvatarImage": "Upload Image",
     "timezone": "Timezone",
     "timezonePlaceholder": "e.g. America/New_York",
     "timezoneInherited": "Inherited from user/system",

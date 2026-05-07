@@ -2,6 +2,8 @@
   "common": {
     "confirm": "确认",
     "cancel": "取消",
+    "or": "或",
+    "uploading": "上传中…",
     "back": "返回",
     "save": "保存",
     "create": "创建",
@@ -820,6 +822,7 @@
     "displayNamePlaceholder": "给你的 Bot 起个名字",
     "avatarUrl": "头像链接",
     "avatarUrlPlaceholder": "输入头像图片地址",
+    "uploadAvatarImage": "上传图片",
     "timezone": "时区",
     "timezonePlaceholder": "例如 Asia/Shanghai",
     "timezoneInherited": "继承用户或系统时区",

@@ -83,6 +83,9 @@ func shouldSkipJWT(path string) bool {
 	if strings.HasPrefix(path, "/assets/") {
 		return true
 	}
+	if strings.HasPrefix(path, "/avatars/") {
+		return true
+	}
 	if strings.HasPrefix(path, "/api/docs") {
 		return true
 	}

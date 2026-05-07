@@ -145,6 +145,7 @@ func options() fx.Option {
 			provideServerHandler(handlers.NewSessionInfoHandler),
 			provideServerHandler(handlers.NewSupermarketHandler),
 			provideServerHandler(provideWebHandler),
+			provideServerHandler(provideAvatarHandler),
 			provideServer,
 		),
 		fx.Invoke(
