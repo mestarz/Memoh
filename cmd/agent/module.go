@@ -1,0 +1,170 @@
+package main
+
+import (
+	"log/slog"
+
+	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
+
+	"github.com/memohai/memoh/internal/accounts"
+	"github.com/memohai/memoh/internal/acl"
+	audiopkg "github.com/memohai/memoh/internal/audio"
+	"github.com/memohai/memoh/internal/bind"
+	"github.com/memohai/memoh/internal/boot"
+	"github.com/memohai/memoh/internal/bots"
+	"github.com/memohai/memoh/internal/channel"
+	"github.com/memohai/memoh/internal/channel/adapters/local"
+	"github.com/memohai/memoh/internal/channel/adapters/weixin"
+	"github.com/memohai/memoh/internal/channel/identities"
+	"github.com/memohai/memoh/internal/compaction"
+	"github.com/memohai/memoh/internal/conversation"
+	emailpkg "github.com/memohai/memoh/internal/email"
+	"github.com/memohai/memoh/internal/handlers"
+	"github.com/memohai/memoh/internal/heartbeat"
+	"github.com/memohai/memoh/internal/mcp"
+	memprovider "github.com/memohai/memoh/internal/memory/adapters"
+	"github.com/memohai/memoh/internal/message/event"
+	"github.com/memohai/memoh/internal/models"
+	"github.com/memohai/memoh/internal/policy"
+	"github.com/memohai/memoh/internal/schedule"
+	"github.com/memohai/memoh/internal/searchproviders"
+	"github.com/memohai/memoh/internal/settings"
+	"github.com/memohai/memoh/internal/toolapproval"
+)
+
+func runServe() {
+	fx.New(options()).Run()
+}
+
+func options() fx.Option {
+	return fx.Options(
+		fx.Provide(
+			provideConfig,
+			boot.ProvideRuntimeConfig,
+			provideLogger,
+			provideContainerService,
+			provideOverlayProviderRegistry,
+			provideNetworkService,
+			provideNetworkController,
+			provideDBConn,
+			provideSQLiteConn,
+			providePostgresStore,
+			provideSQLiteStore,
+			provideDBQueries,
+			provideAccountStore,
+			provideWorkspaceManager,
+			provideBridgeProvider,
+			provideMemoryLLM,
+			memprovider.NewService,
+			provideMemoryProviderRegistry,
+			models.NewService,
+			bots.NewService,
+			accounts.NewService,
+			acl.NewService,
+			settings.NewService,
+			toolapproval.NewService,
+			provideProvidersService,
+			searchproviders.NewService,
+			policy.NewService,
+			mcp.NewConnectionService,
+			conversation.NewService,
+			identities.NewService,
+			bind.NewService,
+			event.NewHub,
+			provideAudioRegistry,
+			audiopkg.NewService,
+			provideAudioTempStore,
+			emailpkg.NewDBOAuthTokenStore,
+			provideEmailRegistry,
+			emailpkg.NewService,
+			emailpkg.NewOutboxService,
+			provideEmailChatGateway,
+			provideEmailTrigger,
+			emailpkg.NewManager,
+			provideRouteService,
+			provideSessionService,
+			provideMessageService,
+			provideMediaService,
+			providePipeline,
+			provideEventStore,
+			provideDiscussDriver,
+			local.NewRouteHub,
+			provideChannelRegistry,
+			channel.NewStore,
+			provideChannelRouter,
+			provideChannelManager,
+			provideChannelLifecycleService,
+			provideAgent,
+			provideChatResolver,
+			provideScheduleTriggerer,
+			provideHeartbeatSessionCreator,
+			provideScheduleSessionCreator,
+			schedule.NewService,
+			provideHeartbeatTriggerer,
+			heartbeat.NewService,
+			compaction.NewService,
+			provideContainerdHandler,
+			provideFederationGateway,
+			provideToolGatewayService,
+			provideBackgroundManager,
+			provideToolProviders,
+			provideServerHandler(handlers.NewPingHandler),
+			provideServerHandler(provideAuthHandler),
+			provideServerHandler(provideMemoryHandler),
+			provideServerHandler(provideMessageHandler),
+			provideServerHandler(provideSessionHandler),
+			provideServerHandler(handlers.NewSwaggerHandler),
+			provideServerHandler(handlers.NewProvidersHandler),
+			provideServerHandler(handlers.NewProviderOAuthHandler),
+			provideServerHandler(handlers.NewSearchProvidersHandler),
+			provideServerHandler(handlers.NewModelsHandler),
+			provideServerHandler(handlers.NewSettingsHandler),
+			provideServerHandler(handlers.NewToolApprovalHandler),
+			provideServerHandler(handlers.NewACLHandler),
+			provideServerHandler(handlers.NewBindHandler),
+			provideServerHandler(handlers.NewScheduleHandler),
+			provideServerHandler(handlers.NewHeartbeatHandler),
+			provideServerHandler(handlers.NewCompactionHandler),
+			provideServerHandler(handlers.NewChannelHandler),
+			provideServerHandler(channel.NewWebhookServerHandler),
+			provideServerHandler(weixin.NewQRServerHandler),
+			provideServerHandler(provideUsersHandler),
+			provideServerHandler(handlers.NewMemoryProvidersHandler),
+			provideServerHandler(handlers.NewNetworkHandler),
+			provideServerHandler(handlers.NewAudioHandler),
+			provideServerHandler(handlers.NewBotAudioHandler),
+			provideServerHandler(handlers.NewEmailProvidersHandler),
+			provideServerHandler(handlers.NewEmailBindingsHandler),
+			provideServerHandler(handlers.NewEmailOutboxHandler),
+			provideServerHandler(handlers.NewEmailWebhookHandler),
+			provideServerHandler(provideEmailOAuthHandler),
+			provideServerHandler(handlers.NewMCPHandler),
+			provideServerHandler(handlers.NewMCPOAuthHandler),
+			provideOAuthService,
+			provideServerHandler(handlers.NewTokenUsageHandler),
+			provideServerHandler(handlers.NewSessionInfoHandler),
+			provideServerHandler(handlers.NewSupermarketHandler),
+			provideServerHandler(provideWebHandler),
+			provideServer,
+		),
+		fx.Invoke(
+			injectToolProviders,
+			startRegistrySync,
+			startAudioProviderBootstrap,
+			startMemoryProviderBootstrap,
+			startSearchProviderBootstrap,
+			startScheduleService,
+			startHeartbeatService,
+			wireResolverOutbound,
+			startChannelManager,
+			startEmailManager,
+			startContainerReconciliation,
+			startBackgroundTaskCleanup,
+			startAudioTempStoreCleanup,
+			startServer,
+		),
+		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
+			return &fxevent.SlogLogger{Logger: logger.With(slog.String("component", "fx"))}
+		}),
+	)
+}

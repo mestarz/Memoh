@@ -1,0 +1,16 @@
+{
+  "name": "@memohai/config",
+  "version": "0.8.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "packageManager": "pnpm@10.27.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "toml": "^3.0.0"
+  }
+}
