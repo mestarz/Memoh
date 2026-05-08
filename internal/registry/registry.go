@@ -58,9 +58,11 @@ func Load(log *slog.Logger, dir string) ([]ProviderDefinition, error) {
 
 // Sync upserts the given provider definitions into the database. New providers
 // are created with enable=false and an empty API key. Existing providers get
-// their icon and client_type refreshed. Models are upserted by (provider_id,
-// model_id), overwriting name/type/config.
-func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, defs []ProviderDefinition) error {
+// their icon and client_type refreshed. When syncModels is true, models are
+// upserted by (provider_id, model_id), overwriting name/type/config. When
+// syncModels is false, only provider metadata is synced and no models are
+// added or modified — preserving manual model configuration.
+func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, defs []ProviderDefinition, syncModels bool) error {
 	for _, def := range defs {
 		var icon pgtype.Text
 		if def.Icon != "" {
@@ -89,6 +91,11 @@ func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, def
 		})
 		if err != nil {
 			logger.Warn("registry: failed to upsert provider", slog.String("name", def.Name), slog.Any("error", err))
+			continue
+		}
+
+		if !syncModels {
+			logger.Info("registry: synced provider (model sync disabled)", slog.String("name", def.Name))
 			continue
 		}
 

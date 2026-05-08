@@ -864,7 +864,7 @@ func startRegistrySync(lc fx.Lifecycle, log *slog.Logger, cfg config.Config, que
 			if len(defs) == 0 {
 				return nil
 			}
-			return registry.Sync(ctx, log, queries, defs)
+			return registry.Sync(ctx, log, queries, defs, !cfg.Registry.DisableModelSync)
 		},
 	})
 }

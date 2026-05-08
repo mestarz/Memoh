@@ -125,6 +125,9 @@ base_url = "http://127.0.0.1:8085"
 
 [registry]
 providers_dir = "conf/providers"
+# Set to true to prevent models from being automatically added/updated on startup.
+# Useful when you want to manage models manually without them being reset on restart.
+# disable_model_sync = false
 
 [supermarket]
 base_url = "https://supermarket.memoh.ai"
