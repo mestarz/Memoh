@@ -4,7 +4,7 @@ import { useStorage } from '@vueuse/core'
 import { useChatStore } from '@/store/chat-list'
 
 const SENTENCE_ENDINGS = new Set(['。', '！', '？', '!', '?', '\n'])
-const MIN_SENTENCE_LEN = 4
+const MIN_SENTENCE_LEN = 20
 
 function buildApiUrl(path: string): string {
   const base = String((import.meta.env.VITE_API_URL ?? '').trim() || '/api')
@@ -22,23 +22,24 @@ export function useVoiceSession(
 
   const synthesizing = ref(false)
   const queueLength = ref(0)
+  // isPlaying must be a ref so the active computed re-evaluates when playback ends
+  const isPlaying = ref(false)
 
   let textBuffer = ''
   const lastSeenContent = new Map<number, string>()
   let lastAssistantTurnId: string | null = null
   let audioQueue: string[] = []
   let currentAudio: HTMLAudioElement | null = null
-  let playing = false
   // Generation token: incremented on reset() to discard in-flight synthesis requests
   let generation = 0
   // Synthesis chain: serializes all synthesis calls so audio is enqueued in sentence order
   let synthesisChain = Promise.resolve()
 
   function playNext() {
-    if (playing || audioQueue.length === 0) return
+    if (isPlaying.value || audioQueue.length === 0) return
     const url = audioQueue.shift()!
     queueLength.value = audioQueue.length
-    playing = true
+    isPlaying.value = true
     const audio = new Audio(url)
     currentAudio = audio
     // Capture generation so that stale done() calls (from an audio paused by reset())
@@ -49,7 +50,7 @@ export function useVoiceSession(
       if (cleaned || generation !== myGen) return
       cleaned = true
       URL.revokeObjectURL(url)
-      playing = false
+      isPlaying.value = false
       currentAudio = null
       playNext()
     }
@@ -100,8 +101,9 @@ export function useVoiceSession(
         const sentence = textBuffer.slice(pos, i + 1).trim()
         if (sentence.length >= MIN_SENTENCE_LEN) {
           synthesizeAndEnqueue(sentence)
+          pos = i + 1 // only advance past sentence boundary when long enough
         }
-        pos = i + 1
+        // short sentences stay in buffer and merge with the next segment
       }
     }
     textBuffer = textBuffer.slice(pos)
@@ -109,7 +111,9 @@ export function useVoiceSession(
 
   function flushBuffer() {
     const text = textBuffer.trim()
-    if (text.length >= MIN_SENTENCE_LEN) {
+    // Always flush any remaining text (even shorter than MIN_SENTENCE_LEN)
+    // so short responses are fully spoken
+    if (text.length > 0) {
       synthesizeAndEnqueue(text)
     }
     textBuffer = ''
@@ -171,11 +175,11 @@ export function useVoiceSession(
     for (const url of audioQueue) URL.revokeObjectURL(url)
     audioQueue = []
     queueLength.value = 0
-    playing = false
+    isPlaying.value = false
     synthesizing.value = false
   }
 
-  const active = computed(() => enabled.value && (synthesizing.value || queueLength.value > 0 || playing))
+  const active = computed(() => enabled.value && (synthesizing.value || queueLength.value > 0 || isPlaying.value))
 
   return {
     enabled,
