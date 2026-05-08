@@ -509,6 +509,18 @@
       "bocha": "博查",
       "duckduckgo": "DuckDuckGo",
       "yandex": "Yandex"
+    },
+    "searchProvider": {
+      "tavilyApiKeys": "API Key 池",
+      "tavilyApiKeyPlaceholder": "输入 Tavily API Key",
+      "addApiKey": "添加密钥",
+      "showKey": "显示",
+      "hideKey": "隐藏",
+      "testKeys": "测试配额",
+      "testKeysLoading": "测试中...",
+      "creditsUsed": "已用: {used} / {limit}",
+      "creditsUnlimitedUsed": "已用: {used}（不限额）",
+      "creditsError": "查询失败"
     }
   },
   "memory": {
@@ -621,6 +633,8 @@
   },
   "transcription": {
     "title": "语音转写",
+    "add": "添加转写提供方",
+    "providerType": "提供方类型",
     "emptyTitle": "暂无转写提供方",
     "emptyDescription": "添加转写提供方以为 Bot 启用语音转文字功能",
     "models": "语音识别模型",

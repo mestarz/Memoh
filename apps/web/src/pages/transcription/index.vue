@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, provide, watch } from 'vue'
+import { computed, ref, provide, watch, reactive } from 'vue'
 import { useQuery } from '@pinia/colada'
 import {
   ScrollArea,
@@ -12,12 +12,15 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  EmptyContent,
   Badge,
+  Button,
 } from '@memohai/ui'
 import { getTranscriptionProviders } from '@memohai/sdk'
 import type { AudioSpeechProviderResponse } from '@memohai/sdk'
 import ProviderSetting from './provider-setting.vue'
-import { AudioLines } from 'lucide-vue-next'
+import AddTranscriptionProvider from './add-transcription-provider.vue'
+import { AudioLines, Plus } from 'lucide-vue-next'
 import MasterDetailSidebarLayout from '@/components/master-detail-sidebar-layout/index.vue'
 import ProviderIcon from '@/components/provider-icon/index.vue'
 
@@ -58,6 +61,8 @@ watch(filteredProviders, (list) => {
   }
   curProvider.value = list[0]
 }, { immediate: true })
+
+const openStatus = reactive({ addOpen: false })
 </script>
 
 <template>
@@ -104,6 +109,10 @@ watch(filteredProviders, (list) => {
       </SidebarMenu>
     </template>
 
+    <template #sidebar-footer>
+      <AddTranscriptionProvider v-model:open="openStatus.addOpen" />
+    </template>
+
     <template #detail>
       <ScrollArea
         v-if="curProvider?.id"
@@ -122,6 +131,16 @@ watch(filteredProviders, (list) => {
         </EmptyHeader>
         <EmptyTitle>{{ $t('transcription.emptyTitle') }}</EmptyTitle>
         <EmptyDescription>{{ $t('transcription.emptyDescription') }}</EmptyDescription>
+        <EmptyContent>
+          <Button
+            variant="outline"
+            class="w-full"
+            @click="openStatus.addOpen = true"
+          >
+            <Plus class="mr-2" />
+            {{ $t('transcription.add') }}
+          </Button>
+        </EmptyContent>
       </Empty>
     </template>
   </MasterDetailSidebarLayout>

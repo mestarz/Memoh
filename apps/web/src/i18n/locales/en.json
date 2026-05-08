@@ -513,6 +513,18 @@
       "bocha": "Bocha",
       "duckduckgo": "DuckDuckGo",
       "yandex": "Yandex"
+    },
+    "searchProvider": {
+      "tavilyApiKeys": "API Key Pool",
+      "tavilyApiKeyPlaceholder": "Enter Tavily API key",
+      "addApiKey": "Add API Key",
+      "showKey": "Show key",
+      "hideKey": "Hide key",
+      "testKeys": "Test Keys",
+      "testKeysLoading": "Testing...",
+      "creditsUsed": "Used: {used} / {limit}",
+      "creditsUnlimitedUsed": "Used: {used} (Unlimited)",
+      "creditsError": "Error"
     }
   },
   "memory": {
@@ -625,6 +637,8 @@
   },
   "transcription": {
     "title": "Transcription",
+    "add": "Add Transcription Provider",
+    "providerType": "Provider Type",
     "emptyTitle": "No Transcription Providers",
     "emptyDescription": "Add a transcription provider to enable speech-to-text for your bots",
     "models": "Transcription Models",
