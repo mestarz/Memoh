@@ -849,13 +849,19 @@ func (s *DBService) enrichAssets(ctx context.Context, messages []Message) {
 		if contentHash == "" {
 			continue
 		}
-		assetMap[msgID] = append(assetMap[msgID], MessageAsset{
+		meta := unmarshalMetadata(row.Metadata)
+		asset := MessageAsset{
 			ContentHash: contentHash,
 			Role:        row.Role,
 			Ordinal:     int(row.Ordinal),
 			Name:        row.Name,
-			Metadata:    unmarshalMetadata(row.Metadata),
-		})
+			Metadata:    meta,
+		}
+		// ListMessageAssetsBatch 的查询未包含 storage_key 列，从 metadata 中补充。
+		if sk, ok := meta["storage_key"].(string); ok {
+			asset.StorageKey = strings.TrimSpace(sk)
+		}
+		assetMap[msgID] = append(assetMap[msgID], asset)
 	}
 	for i := range messages {
 		if assets, ok := assetMap[messages[i].ID]; ok {
