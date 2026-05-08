@@ -17,19 +17,43 @@
 
     <div class="px-1.5 shrink-0">
       <Button
+        v-if="!selectionMode"
         variant="ghost"
         class="w-full h-12 justify-start gap-4.5 text-xs font-medium"
         :disabled="!currentBotId"
         @click="handleNewSession"
       >
-        <Plus
-          class="size-3"
-        />
+        <Plus class="size-3" />
         {{ t('chat.newSession') }}
       </Button>
+      <!-- Selection mode header actions -->
+      <div
+        v-else
+        class="flex items-center h-12 gap-1.5"
+      >
+        <Button
+          variant="ghost"
+          size="xs"
+          class="text-xs h-7 px-2"
+          @click="toggleSelectAll"
+        >
+          {{ allVisibleSelected ? t('chat.deselectAll') : t('chat.selectAll') }}
+        </Button>
+        <span class="text-xs text-muted-foreground flex-1 text-center">
+          {{ t('chat.selectedCount', { n: selectedIds.length }) }}
+        </span>
+        <Button
+          variant="ghost"
+          size="xs"
+          class="text-xs h-7 px-2"
+          @click="exitSelectionMode"
+        >
+          {{ t('chat.cancelSelect') }}
+        </Button>
+      </div>
     </div>
 
-    <div class="px-3.5 h-[38px] flex items-center shrink-0">
+    <div class="px-3.5 h-[38px] flex items-center justify-between shrink-0">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <button class="flex items-center gap-1">
@@ -41,9 +65,7 @@
             <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.7px]">
               {{ t('chat.sessionSourcePrefix') }}{{ filterLabel }}
             </span>
-            <ChevronDown
-              class="size-2.5 text-muted-foreground"
-            />
+            <ChevronDown class="size-2.5 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
@@ -57,12 +79,19 @@
               v-if="filterType === opt.value"
               class="size-3 mr-2 absolute"
             />
-            <span class="ml-5">
-              {{ opt.label }}
-            </span>
+            <span class="ml-5">{{ opt.label }}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <!-- Select mode toggle button -->
+      <button
+        v-if="!selectionMode && filteredSessions.length > 0"
+        class="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+        @click="enterSelectionMode"
+      >
+        {{ t('chat.selectSessions') }}
+      </button>
     </div>
 
     <div class="flex-1 relative min-h-0">
@@ -74,8 +103,11 @@
               :key="session.id"
               :session="session"
               :is-active="sessionId === session.id"
+              :selectable="selectionMode"
+              :selected="selectedIds.includes(session.id)"
               @select="handleSelect"
               @delete="confirmDeleteSession"
+              @toggle-select="toggleSelectItem"
             />
           </div>
 
@@ -90,14 +122,32 @@
             v-if="loadingChats"
             class="flex justify-center py-4"
           >
-            <LoaderCircle
-              class="size-4 animate-spin text-muted-foreground"
-            />
+            <LoaderCircle class="size-4 animate-spin text-muted-foreground" />
           </div>
         </ScrollArea>
       </div>
     </div>
 
+    <!-- Bulk delete action bar -->
+    <div
+      v-if="selectionMode"
+      class="shrink-0 px-2 py-2 border-t border-border"
+    >
+      <Button
+        variant="destructive"
+        class="w-full h-8 text-xs"
+        :disabled="selectedIds.length === 0 || bulkDeleteLoading"
+        @click="bulkDeleteDialogOpen = true"
+      >
+        <LoaderCircle
+          v-if="bulkDeleteLoading"
+          class="mr-1 size-3 animate-spin"
+        />
+        {{ t('chat.deleteSelected') }}
+      </Button>
+    </div>
+
+    <!-- Single delete dialog -->
     <Dialog v-model:open="deleteSessionDialogOpen">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>
@@ -119,6 +169,38 @@
           >
             <LoaderCircle
               v-if="deleteSessionLoading"
+              class="mr-1 size-3 animate-spin"
+            />
+            {{ t('common.confirm') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Bulk delete confirm dialog -->
+    <Dialog v-model:open="bulkDeleteDialogOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{{ t('chat.deleteSelected') }}</DialogTitle>
+          <DialogDescription>
+            {{ t('chat.deleteSelectedConfirm', { n: selectedIds.length }) }}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            :disabled="bulkDeleteLoading"
+            @click="bulkDeleteDialogOpen = false"
+          >
+            {{ t('common.cancel') }}
+          </Button>
+          <Button
+            variant="destructive"
+            :disabled="bulkDeleteLoading"
+            @click="handleBulkDelete"
+          >
+            <LoaderCircle
+              v-if="bulkDeleteLoading"
               class="mr-1 size-3 animate-spin"
             />
             {{ t('common.confirm') }}
@@ -222,6 +304,7 @@ function handleNewSession() {
   workspaceTabs.openDraft()
 }
 
+// --- Single delete ---
 const deleteSessionDialogOpen = ref(false)
 const deleteSessionLoading = ref(false)
 const sessionPendingDelete = ref<SessionSummary | null>(null)
@@ -242,6 +325,58 @@ async function handleDeleteSession() {
     sessionPendingDelete.value = null
   } finally {
     deleteSessionLoading.value = false
+  }
+}
+
+// --- Bulk delete ---
+const selectionMode = ref(false)
+const selectedIds = ref<string[]>([])
+const bulkDeleteDialogOpen = ref(false)
+const bulkDeleteLoading = ref(false)
+
+const allVisibleSelected = computed(() =>
+  filteredSessions.value.length > 0
+  && filteredSessions.value.every(s => selectedIds.value.includes(s.id)),
+)
+
+function enterSelectionMode() {
+  selectionMode.value = true
+  selectedIds.value = []
+}
+
+function exitSelectionMode() {
+  selectionMode.value = false
+  selectedIds.value = []
+}
+
+function toggleSelectItem(session: SessionSummary) {
+  const idx = selectedIds.value.indexOf(session.id)
+  if (idx >= 0) {
+    selectedIds.value = selectedIds.value.filter(id => id !== session.id)
+  } else {
+    selectedIds.value = [...selectedIds.value, session.id]
+  }
+}
+
+function toggleSelectAll() {
+  if (allVisibleSelected.value) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = filteredSessions.value.map(s => s.id)
+  }
+}
+
+async function handleBulkDelete() {
+  if (bulkDeleteLoading.value || selectedIds.value.length === 0) return
+  bulkDeleteLoading.value = true
+  const ids = [...selectedIds.value]
+  try {
+    for (const id of ids) workspaceTabs.closeChatBySession(id)
+    await chatStore.removeSessions(ids)
+    bulkDeleteDialogOpen.value = false
+    exitSelectionMode()
+  } finally {
+    bulkDeleteLoading.value = false
   }
 }
 </script>

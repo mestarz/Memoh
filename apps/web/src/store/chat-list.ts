@@ -1125,6 +1125,32 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  async function removeSessions(targetSessionIds: string[]) {
+    const ids = targetSessionIds.map(id => id.trim()).filter(Boolean)
+    if (!ids.length) return
+    const bid = currentBotId.value ?? ''
+    if (!bid) return
+    loadingChats.value = true
+    try {
+      await Promise.allSettled(ids.map(id => requestDeleteSession(bid, id)))
+      for (const id of ids) clearCachedMessages(bid, id)
+      sessions.value = sessions.value.filter(s => !ids.includes(s.id))
+      if (sessionId.value && ids.includes(sessionId.value)) {
+        const remaining = sessions.value
+        if (!remaining.length) {
+          sessionId.value = null
+          replaceMessages([])
+          hasMoreOlder.value = false
+        } else {
+          sessionId.value = remaining[0]!.id
+          await loadMessages(bid, remaining[0]!.id)
+        }
+      }
+    } finally {
+      loadingChats.value = false
+    }
+  }
+
   async function sendMessage(text: string, attachments?: ChatAttachment[]) {
     const trimmed = text.trim()
     if ((!trimmed && !attachments?.length) || streaming.value || !currentBotId.value) return
@@ -1284,6 +1310,7 @@ export const useChatStore = defineStore('chat', () => {
     createNewSession,
     createNewChat: createNewSession,
     removeSession,
+    removeSessions,
     removeChat: removeSession,
     deleteChat: removeSession,
     sendMessage,

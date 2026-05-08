@@ -4,11 +4,31 @@
     tabindex="0"
     class="group relative flex items-center h-12 w-full rounded-lg px-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
     :class="isActive ? 'bg-background' : 'hover:bg-background/60'"
-    @click="$emit('select', session)"
-    @keydown.enter.prevent="$emit('select', session)"
-    @keydown.space.prevent="$emit('select', session)"
+    @click="selectable ? $emit('toggle-select', session) : $emit('select', session)"
+    @keydown.enter.prevent="selectable ? $emit('toggle-select', session) : $emit('select', session)"
+    @keydown.space.prevent="selectable ? $emit('toggle-select', session) : $emit('select', session)"
   >
-    <div class="relative shrink-0 mr-2.5">
+    <!-- Selection checkbox (shown in selectable mode) -->
+    <div
+      v-if="selectable"
+      class="shrink-0 mr-2.5 flex items-center justify-center"
+      @click.stop="$emit('toggle-select', session)"
+    >
+      <div
+        class="size-[15px] rounded border flex items-center justify-center transition-colors"
+        :class="selected ? 'bg-primary border-primary' : 'bg-background border-border'"
+      >
+        <Check
+          v-if="selected"
+          class="size-2.5 text-primary-foreground"
+        />
+      </div>
+    </div>
+
+    <div
+      v-else
+      class="relative shrink-0 mr-2.5"
+    >
       <Avatar
         v-if="isIMSession"
         class="size-[26px] border border-border bg-accent"
@@ -50,13 +70,16 @@
         </span>
 
         <span
-          v-if="session.updated_at"
+          v-if="session.updated_at && !selectable"
           class="text-[8px] text-muted-foreground ml-1 shrink-0"
         >
           {{ formatTime(session.updated_at) }}
         </span>
 
-        <DropdownMenu v-model:open="menuOpen">
+        <DropdownMenu
+          v-if="!selectable"
+          v-model:open="menuOpen"
+        >
           <DropdownMenuTrigger as-child>
             <button
               type="button"
@@ -96,7 +119,7 @@
 
 <script setup lang="ts">
 import { computed, ref, type Component } from 'vue'
-import { HeartPulse, Clock, GitBranch, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-vue-next'
+import { HeartPulse, Clock, GitBranch, MessageSquare, MoreHorizontal, Trash2, Check } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { SessionSummary } from '@/composables/api/useChat'
 import {
@@ -113,11 +136,14 @@ import ChannelBadge from '@/components/chat-list/channel-badge/index.vue'
 const props = defineProps<{
   session: SessionSummary
   isActive: boolean
+  selectable?: boolean
+  selected?: boolean
 }>()
 
 defineEmits<{
   select: [session: SessionSummary]
   delete: [session: SessionSummary]
+  'toggle-select': [session: SessionSummary]
 }>()
 
 const { t } = useI18n()
