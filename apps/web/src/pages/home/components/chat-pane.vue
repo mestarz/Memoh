@@ -204,6 +204,30 @@
                   />
                 </Button>
 
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  :disabled="!currentBotId || activeChatReadOnly"
+                  :class="voiceSession.enabled.value ? 'text-[#8B56E3]' : 'text-muted-foreground'"
+                  :aria-label="voiceSession.enabled.value ? $t('chat.voiceSessionDisable') : $t('chat.voiceSessionEnable')"
+                  :title="voiceSession.enabled.value ? $t('chat.voiceSessionDisable') : $t('chat.voiceSessionEnable')"
+                  @click="voiceSession.enabled.value = !voiceSession.enabled.value"
+                >
+                  <LoaderCircle
+                    v-if="voiceSession.active.value"
+                    class="size-3.5 animate-spin"
+                  />
+                  <Volume2
+                    v-else-if="voiceSession.enabled.value"
+                    class="size-3.5"
+                  />
+                  <VolumeX
+                    v-else
+                    class="size-3.5"
+                  />
+                </Button>
+
                 <SessionInfoRing
                   class="ml-auto"
                   :override-model-id="overrideModelId"
@@ -246,7 +270,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, useTemplateRef, watchEffect, watch, nextTick } from 'vue'
-import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb } from 'lucide-vue-next'
+import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, Volume2, VolumeX } from 'lucide-vue-next'
 import { ScrollArea, Button, InputGroup, InputGroupAddon, InputGroupTextarea, Popover, PopoverContent, PopoverTrigger } from '@memohai/ui'
 import { useChatStore } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
@@ -262,6 +286,7 @@ import ModelOptions from '@/pages/bots/components/model-options.vue'
 import ReasoningEffortSelect from '@/pages/bots/components/reasoning-effort-select.vue'
 import { EFFORT_LABELS, EFFORT_OPACITY } from '@/pages/bots/components/reasoning-effort'
 import { useMediaGallery } from '../composables/useMediaGallery'
+import { useVoiceSession } from '../composables/useVoiceSession'
 import type { ChatAttachment } from '@/composables/api/useChat'
 
 const props = withDefaults(defineProps<{
@@ -295,6 +320,7 @@ const {
 
 const isActive = computed(() => props.active !== false)
 
+const voiceSession = useVoiceSession(() => currentBotId.value, () => props.active)
 
 const { data: modelData } = useQuery({
   key: ['models'],
@@ -610,6 +636,8 @@ async function handleSend() {
   const text = inputText.value.trim()
   const files = [...pendingFiles.value]
   if ((!text && !files.length) || streaming.value || activeChatReadOnly.value) return
+
+  voiceSession.reset()
 
   const sentDraftKey = inputDraftKey.value
   inputText.value = ''

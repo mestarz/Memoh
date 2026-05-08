@@ -248,6 +248,8 @@
     "reasoningMedium": "Medium",
     "reasoningHigh": "High",
     "reasoningXHigh": "X-High",
+    "voiceSessionEnable": "Enable voice session",
+    "voiceSessionDisable": "Disable voice session",
     "sessions": "Sessions",
     "newSession": "New Session",
     "deleteSession": "Delete Session",

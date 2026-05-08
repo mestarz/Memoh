@@ -30,6 +30,7 @@ func NewBotAudioHandler(log *slog.Logger, audioService *audiopkg.Service, settin
 
 func (h *BotAudioHandler) Register(e *echo.Echo) {
 	e.POST("/bots/:bot_id/tts/synthesize", h.Synthesize)
+	e.POST("/bots/:bot_id/tts/render", h.Render)
 }
 
 type synthesizeRequest struct {
@@ -108,4 +109,52 @@ func (h *BotAudioHandler) Synthesize(c echo.Context) error {
 		ContentType: contentType,
 		Size:        size,
 	})
+}
+
+// Render godoc
+// @Summary Render speech for a bot and return audio directly
+// @Description Synthesize text using the bot's configured TTS model and return raw audio bytes
+// @Tags bots
+// @Accept json
+// @Produce application/octet-stream
+// @Param bot_id path string true "Bot ID"
+// @Param request body synthesizeRequest true "Text to synthesize"
+// @Success 200 {file} binary "Audio data"
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /bots/{bot_id}/tts/render [post].
+func (h *BotAudioHandler) Render(c echo.Context) error {
+	botID := strings.TrimSpace(c.Param("bot_id"))
+	if botID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "bot_id is required")
+	}
+
+	var req synthesizeRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	text := strings.TrimSpace(req.Text)
+	if text == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "text is required")
+	}
+	const maxTextLen = 500
+	if len([]rune(text)) > maxTextLen {
+		return echo.NewHTTPError(http.StatusBadRequest, "text too long, max 500 characters")
+	}
+
+	botSettings, err := h.settingsService.GetBot(c.Request().Context(), botID)
+	if err != nil {
+		h.logger.Error("failed to load bot settings", slog.String("bot_id", botID), slog.Any("error", err))
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to load bot settings")
+	}
+	if botSettings.TtsModelID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "bot has no TTS model configured")
+	}
+
+	audio, contentType, err := h.audioService.Synthesize(c.Request().Context(), botSettings.TtsModelID, text, nil)
+	if err != nil {
+		h.logger.Error("speech render failed", slog.String("bot_id", botID), slog.String("model_id", botSettings.TtsModelID), slog.Any("error", err))
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.Blob(http.StatusOK, contentType, audio)
 }

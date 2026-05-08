@@ -244,6 +244,8 @@
     "reasoningMedium": "中",
     "reasoningHigh": "高",
     "reasoningXHigh": "极高",
+    "voiceSessionEnable": "开启语音会话",
+    "voiceSessionDisable": "关闭语音会话",
     "sessions": "会话",
     "newSession": "新建会话",
     "deleteSession": "删除会话",
