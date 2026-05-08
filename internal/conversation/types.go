@@ -143,11 +143,18 @@ func (m ModelMessage) ContentParts() []ContentPart {
 }
 
 // HasContent reports whether the message carries non-empty content or tool calls.
+// Pure-reasoning messages (only "reasoning" parts, no text, no tool calls) are
+// treated as having no content: they would serialize as {"content":null} to the
+// OpenAI completions API and cause a 400 error.
 func (m ModelMessage) HasContent() bool {
 	if strings.TrimSpace(m.TextContent()) != "" {
 		return true
 	}
-	if len(m.ContentParts()) > 0 {
+	// 跳过 reasoning 类型的 part，只有非 reasoning 的 part 才算有内容
+	for _, p := range m.ContentParts() {
+		if strings.EqualFold(p.Type, "reasoning") {
+			continue
+		}
 		return true
 	}
 	return len(m.ToolCalls) > 0

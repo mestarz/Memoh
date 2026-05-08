@@ -857,9 +857,12 @@ func (s *DBService) enrichAssets(ctx context.Context, messages []Message) {
 			Name:        row.Name,
 			Metadata:    meta,
 		}
-		// ListMessageAssetsBatch 的查询未包含 storage_key 列，从 metadata 中补充。
+		// ListMessageAssetsBatch 的查询未包含 storage_key / mime 列，从 metadata 中补充。
 		if sk, ok := meta["storage_key"].(string); ok {
 			asset.StorageKey = strings.TrimSpace(sk)
+		}
+		if m, ok := meta["mime"].(string); ok && asset.Mime == "" {
+			asset.Mime = strings.TrimSpace(m)
 		}
 		assetMap[msgID] = append(assetMap[msgID], asset)
 	}

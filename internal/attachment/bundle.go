@@ -37,6 +37,7 @@ const (
 	MetadataKeyBotID      = "bot_id"
 	MetadataKeyStorageKey = "storage_key"
 	MetadataKeyName       = "name"
+	MetadataKeyMime       = "mime"
 	MetadataKeySourcePath = "source_path"
 	MetadataKeySourceURL  = "source_url"
 
@@ -240,6 +241,12 @@ func (b Bundle) WithAsset(botID string, asset media.Asset) Bundle {
 	}
 	if strings.TrimSpace(b.Name) != "" {
 		meta[MetadataKeyName] = strings.TrimSpace(b.Name)
+	}
+	if b.Mime == "" {
+		b.Mime = NormalizeMime(asset.Mime)
+	}
+	if strings.TrimSpace(b.Mime) != "" {
+		meta[MetadataKeyMime] = strings.TrimSpace(b.Mime)
 	}
 	if strings.TrimSpace(sourcePath) != "" {
 		meta[MetadataKeySourcePath] = strings.TrimSpace(sourcePath)

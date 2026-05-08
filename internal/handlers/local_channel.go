@@ -522,6 +522,12 @@ func (h *LocalChannelHandler) HandleWebSocket(c echo.Context) error {
 			text := strings.TrimSpace(msg.Text)
 			sessionID := strings.TrimSpace(msg.SessionID)
 
+			// 对用户直接上传的 base64 附件（尚无 content_hash）先做 ingest，
+			// 将文件写入容器媒体存储并补全 content_hash/storage_key，
+			// 使后续 chatAttachmentsToAssetRefs 能将其持久化到 bot_history_message_assets，
+			// 从而在下一轮对话中通过 enrichUserMessageWithAssetPaths 注入路径提示。
+			msg.Attachments = h.ingestMessageAttachments(connCtx, botID, msg.Attachments)
+
 			chatAttachments := parseWSClientAttachments(msg.Attachments)
 
 			if text == "" && len(chatAttachments) == 0 {
@@ -839,7 +845,44 @@ func (h *LocalChannelHandler) ingestSingleAttachment(ctx context.Context, botID 
 	return attachmentpkg.Bundle{}, false
 }
 
-// wsSynthesizeSpeech handles speech_delta events by synthesizing audio and
+// ingestMessageAttachments 遍历 message 事件中的原始附件列表，对还没有 content_hash
+// 但携带了 base64 数据或容器路径的条目调用 ingestSingleAttachment，将文件写入媒体存储
+// 并将 content_hash/storage_key 写回到 JSON 条目，供后续 parseWSClientAttachments
+// 及 chatAttachmentsToAssetRefs 使用。没有 base64 且没有 path 的条目保持不变。
+func (h *LocalChannelHandler) ingestMessageAttachments(ctx context.Context, botID string, rawItems []json.RawMessage) []json.RawMessage {
+	if h.mediaService == nil || len(rawItems) == 0 {
+		return rawItems
+	}
+	result := make([]json.RawMessage, len(rawItems))
+	copy(result, rawItems)
+	for i, raw := range result {
+		var item map[string]any
+		if err := json.Unmarshal(raw, &item); err != nil {
+			continue
+		}
+		bundle := attachmentpkg.BundleFromMap(item)
+		if strings.TrimSpace(bundle.ContentHash) != "" {
+			// 已有 content_hash，无需再次 ingest
+			continue
+		}
+		if bundle.Base64 == "" && bundle.Path == "" {
+			continue
+		}
+		ingested, ok := h.ingestSingleAttachment(ctx, botID, bundle)
+		if !ok {
+			continue
+		}
+		merged := ingested.MergeIntoMap(maps.Clone(item))
+		updated, err := json.Marshal(merged)
+		if err != nil {
+			continue
+		}
+		result[i] = updated
+	}
+	return result
+}
+
+
 // injecting attachment_delta events with the resulting voice attachments.
 func (h *LocalChannelHandler) wsSynthesizeSpeech(ctx context.Context, botID string, original json.RawMessage) []json.RawMessage {
 	if h.speechService == nil || h.speechModelResolver == nil {
