@@ -3,10 +3,12 @@ package flow
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
+	attachmentpkg "github.com/memohai/memoh/internal/attachment"
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/db"
 	messagepkg "github.com/memohai/memoh/internal/message"
@@ -48,6 +50,11 @@ func (r *Resolver) loadMessages(ctx context.Context, chatID string, sessionID st
 			mm = conversation.ModelMessage{Role: m.Role, Content: m.Content}
 		} else {
 			mm.Role = m.Role
+		}
+		// 对历史中含有图片附件的用户消息，将容器内文件路径前置到消息文本，
+		// 让 LLM 在后续轮次中可通过工具按需读取图片，无需重复传输 base64 数据。
+		if strings.EqualFold(strings.TrimSpace(mm.Role), "user") && len(m.Assets) > 0 {
+			mm = enrichUserMessageWithImagePaths(mm, m.Assets)
 		}
 		var inputTokens *int
 		var outputTokens *int
@@ -357,4 +364,34 @@ func stripToolMessages(messages []conversation.ModelMessage) []conversation.Mode
 		filtered = append(filtered, m)
 	}
 	return filtered
+}
+
+// enrichUserMessageWithImagePaths 将历史用户消息中每个图片附件的容器内文件路径
+// 前置到消息文本。LLM 在后续轮次中可通过容器 read 工具按需读取这些图片，
+// 而无需将图片 base64 数据重复写入上下文，从而降低 token 消耗。
+func enrichUserMessageWithImagePaths(msg conversation.ModelMessage, assets []messagepkg.MessageAsset) conversation.ModelMessage {
+	var annotations []string
+	for _, asset := range assets {
+		storageKey := strings.TrimSpace(asset.StorageKey)
+		if storageKey == "" {
+			continue
+		}
+		mime := strings.ToLower(strings.TrimSpace(asset.Mime))
+		if !strings.HasPrefix(mime, "image/") {
+			continue
+		}
+		path := attachmentpkg.MediaAccessPath(storageKey)
+		label := strings.TrimSpace(asset.Name)
+		if label == "" {
+			label = mime
+		}
+		annotations = append(annotations, fmt.Sprintf("[Attached image: %s (%s)]", path, label))
+	}
+	if len(annotations) == 0 {
+		return msg
+	}
+	prefix := strings.Join(annotations, "\n") + "\n"
+	existingText := msg.TextContent()
+	msg.Content = conversation.NewTextContent(prefix + existingText)
+	return msg
 }
