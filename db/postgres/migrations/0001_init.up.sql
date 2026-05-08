@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS providers (
     'alibabacloud-speech',
     'microsoft-speech',
     'google-speech',
-    'google-transcription'
+    'google-transcription',
+    'gptsovits-speech'
   ))
 );
 
