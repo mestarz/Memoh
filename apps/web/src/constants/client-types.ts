@@ -100,6 +100,11 @@ export const CLIENT_TYPE_META: Record<string, ClientTypeMeta> = {
     label: 'Microsoft Speech',
     hint: 'Azure Cognitive Services TTS',
   },
+  'gptsovits-speech': {
+    value: 'gptsovits-speech',
+    label: 'GPT-SoVITS Speech',
+    hint: 'Local GPT-SoVITS voice cloning TTS',
+  },
   'google-speech': {
     value: 'google-speech',
     label: 'Google Speech',
@@ -116,3 +121,9 @@ export const CLIENT_TYPE_LIST: ClientTypeMeta[] = Object.values(CLIENT_TYPE_META
 
 export const LLM_CLIENT_TYPE_LIST: ClientTypeMeta[] = CLIENT_TYPE_LIST
   .filter(ct => !ct.value.endsWith('-speech') && !ct.value.endsWith('-transcription'))
+
+export const SPEECH_CLIENT_TYPE_LIST: ClientTypeMeta[] = CLIENT_TYPE_LIST
+  .filter(ct => ct.value.endsWith('-speech'))
+
+export const TRANSCRIPTION_CLIENT_TYPE_LIST: ClientTypeMeta[] = CLIENT_TYPE_LIST
+  .filter(ct => ct.value.endsWith('-transcription'))

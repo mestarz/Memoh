@@ -280,7 +280,8 @@ WHERE client_type IN (
   'minimax-speech',
   'volcengine-speech',
   'alibabacloud-speech',
-  'microsoft-speech'
+  'microsoft-speech',
+  'gptsovits-speech'
 )
 ORDER BY created_at DESC;
 

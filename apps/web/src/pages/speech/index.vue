@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, provide, watch } from 'vue'
+import { computed, ref, provide, watch, reactive } from 'vue'
 import { useQuery } from '@pinia/colada'
 import {
   ScrollArea,
@@ -12,12 +12,15 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  Badge
+  EmptyContent,
+  Badge,
+  Button,
 } from '@memohai/ui'
 import { getSpeechProviders } from '@memohai/sdk'
 import type { TtsSpeechProviderResponse } from '@memohai/sdk'
 import ProviderSetting from './components/provider-setting.vue'
-import { Volume2 } from 'lucide-vue-next'
+import AddSpeechProvider from './components/add-speech-provider.vue'
+import { Volume2, Plus } from 'lucide-vue-next'
 import MasterDetailSidebarLayout from '@/components/master-detail-sidebar-layout/index.vue'
 import ProviderIcon from '@/components/provider-icon/index.vue'
 
@@ -65,6 +68,7 @@ watch(filteredProviders, (list) => {
   curProvider.value = list[0]
 }, { immediate: true })
 
+const openStatus = reactive({ addOpen: false })
 </script>
 
 <template>
@@ -111,6 +115,10 @@ watch(filteredProviders, (list) => {
       </SidebarMenu>
     </template>
 
+    <template #sidebar-footer>
+      <AddSpeechProvider v-model:open="openStatus.addOpen" />
+    </template>
+
     <template #detail>
       <ScrollArea
         v-if="curProvider?.id"
@@ -129,6 +137,16 @@ watch(filteredProviders, (list) => {
         </EmptyHeader>
         <EmptyTitle>{{ $t('speech.emptyTitle') }}</EmptyTitle>
         <EmptyDescription>{{ $t('speech.emptyDescription') }}</EmptyDescription>
+        <EmptyContent>
+          <Button
+            variant="outline"
+            class="w-full"
+            @click="openStatus.addOpen = true"
+          >
+            <Plus class="mr-2" />
+            {{ $t('speech.add') }}
+          </Button>
+        </EmptyContent>
       </Empty>
     </template>
   </MasterDetailSidebarLayout>

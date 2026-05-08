@@ -831,6 +831,49 @@ func defaultProviderDefinitions() []ProviderDefinition {
 			},
 			Order: 90,
 		},
+		{
+			ClientType:  models.ClientTypeGPTSoVITSSpeech,
+			DisplayName: "GPT-SoVITS",
+			Icon:        "openai",
+			Description: "Local GPT-SoVITS voice cloning TTS (OpenAI-compatible adapter)",
+			ConfigSchema: ConfigSchema{Fields: []FieldSchema{
+				stringField("base_url", "Base URL", "GPT-SoVITS OpenAI adapter URL", false, "http://127.0.0.1:9881", 10),
+				advancedStringField("api_key", "API Key", "Optional bearer token (leave empty for local service)", false, "", 20),
+			}},
+			DefaultModel: "gptsovits-tts",
+			SupportsList: false,
+			Models: []ModelInfo{{
+				ID:          "gptsovits-tts",
+				Name:        "gptsovits-tts",
+				Description: "GPT-SoVITS voice cloning model",
+				ConfigSchema: ConfigSchema{Fields: []FieldSchema{
+					stringField("voice", "Voice", "Voice name configured in the adapter (e.g. aimisi)", false, "aimisi", 10),
+					enumField("response_format", "Response Format", "Audio output format", false, []string{"wav", "mp3", "flac"}, 20),
+					numberField("speed", "Speed", "Speech rate multiplier (0.5–2.0)", false, 1.0, 30),
+				}},
+				Capabilities: ModelCapabilities{
+					ConfigSchema: ConfigSchema{Fields: []FieldSchema{
+						stringField("voice", "Voice", "Voice name configured in the adapter (e.g. aimisi)", false, "aimisi", 10),
+						enumField("response_format", "Response Format", "Audio output format", false, []string{"wav", "mp3", "flac"}, 20),
+						numberField("speed", "Speed", "Speech rate multiplier (0.5–2.0)", false, 1.0, 30),
+					}},
+					Formats: []string{"wav", "mp3", "flac"},
+				},
+			}},
+			Factory: func(config map[string]any) (sdk.SpeechProvider, error) {
+				opts := []openaispeech.Option{}
+				baseURL := configString(config, "base_url")
+				if baseURL == "" {
+					baseURL = "http://127.0.0.1:9881"
+				}
+				opts = append(opts, openaispeech.WithBaseURL(baseURL))
+				if v := configString(config, "api_key"); v != "" {
+					opts = append(opts, openaispeech.WithAPIKey(v))
+				}
+				return openaispeech.New(opts...), nil
+			},
+			Order: 95,
+		},
 	}
 }
 
