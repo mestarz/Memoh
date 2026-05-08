@@ -26,23 +26,8 @@ SELECT * FROM providers WHERE client_type = sqlc.arg(client_type);
 
 -- name: ListProviders :many
 SELECT * FROM providers
-WHERE client_type NOT IN (
-  'edge-speech',
-  'openai-speech',
-  'openai-transcription',
-  'openrouter-speech',
-  'openrouter-transcription',
-  'elevenlabs-speech',
-  'elevenlabs-transcription',
-  'deepgram-speech',
-  'deepgram-transcription',
-  'minimax-speech',
-  'volcengine-speech',
-  'alibabacloud-speech',
-  'microsoft-speech',
-  'google-speech',
-  'google-transcription'
-)
+WHERE client_type NOT LIKE '%-speech'
+  AND client_type NOT LIKE '%-transcription'
 ORDER BY created_at DESC;
 
 -- name: UpdateProvider :one
@@ -64,23 +49,8 @@ DELETE FROM providers WHERE id = sqlc.arg(id);
 -- name: CountProviders :one
 SELECT COUNT(*)
 FROM providers
-WHERE client_type NOT IN (
-  'edge-speech',
-  'openai-speech',
-  'openai-transcription',
-  'openrouter-speech',
-  'openrouter-transcription',
-  'elevenlabs-speech',
-  'elevenlabs-transcription',
-  'deepgram-speech',
-  'deepgram-transcription',
-  'minimax-speech',
-  'volcengine-speech',
-  'alibabacloud-speech',
-  'microsoft-speech',
-  'google-speech',
-  'google-transcription'
-);
+WHERE client_type NOT LIKE '%-speech'
+  AND client_type NOT LIKE '%-transcription';
 
 -- name: CreateModel :one
 INSERT INTO models (id, model_id, name, provider_id, type, config)

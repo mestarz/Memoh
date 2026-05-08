@@ -37,12 +37,12 @@ type Settings struct {
 }
 
 type UpsertRequest struct {
-	ChatModelID            string              `json:"chat_model_id,omitempty"`
-	ImageModelID           string              `json:"image_model_id,omitempty"`
-	SearchProviderID       string              `json:"search_provider_id,omitempty"`
-	MemoryProviderID       string              `json:"memory_provider_id,omitempty"`
-	TtsModelID             string              `json:"tts_model_id,omitempty"`
-	TranscriptionModelID   string              `json:"transcription_model_id,omitempty"`
+	ChatModelID            *string             `json:"chat_model_id,omitempty"`
+	ImageModelID           *string             `json:"image_model_id,omitempty"`
+	SearchProviderID       *string             `json:"search_provider_id,omitempty"`
+	MemoryProviderID       *string             `json:"memory_provider_id,omitempty"`
+	TtsModelID             *string             `json:"tts_model_id,omitempty"`
+	TranscriptionModelID   *string             `json:"transcription_model_id,omitempty"`
 	Language               string              `json:"language,omitempty"`
 	AclDefaultEffect       string              `json:"acl_default_effect,omitempty"`
 	Timezone               *string             `json:"timezone,omitempty"`
@@ -50,13 +50,13 @@ type UpsertRequest struct {
 	ReasoningEffort        *string             `json:"reasoning_effort,omitempty"`
 	HeartbeatEnabled       *bool               `json:"heartbeat_enabled,omitempty"`
 	HeartbeatInterval      *int                `json:"heartbeat_interval,omitempty"`
-	HeartbeatModelID       string              `json:"heartbeat_model_id,omitempty"`
-	TitleModelID           string              `json:"title_model_id,omitempty"`
+	HeartbeatModelID       *string             `json:"heartbeat_model_id,omitempty"`
+	TitleModelID           *string             `json:"title_model_id,omitempty"`
 	CompactionEnabled      *bool               `json:"compaction_enabled,omitempty"`
 	CompactionThreshold    *int                `json:"compaction_threshold,omitempty"`
 	CompactionRatio        *int                `json:"compaction_ratio,omitempty"`
 	CompactionModelID      *string             `json:"compaction_model_id,omitempty"`
-	DiscussProbeModelID    string              `json:"discuss_probe_model_id,omitempty"`
+	DiscussProbeModelID    *string             `json:"discuss_probe_model_id,omitempty"`
 	PersistFullToolResults *bool               `json:"persist_full_tool_results,omitempty"`
 	ShowToolCallsInIM      *bool               `json:"show_tool_calls_in_im,omitempty"`
 	ToolApprovalConfig     *ToolApprovalConfig `json:"tool_approval_config,omitempty"`

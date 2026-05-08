@@ -75,10 +75,12 @@ func (h *Handler) buildSettingsGroup() *CommandGroup {
 					req.HeartbeatInterval = &val
 				case "--chat_model_id":
 					i++
-					req.ChatModelID = args[i]
+					v := args[i]
+					req.ChatModelID = &v
 				case "--heartbeat_model_id":
 					i++
-					req.HeartbeatModelID = args[i]
+					v := args[i]
+					req.HeartbeatModelID = &v
 				default:
 					return fmt.Sprintf("Unknown option: %s\n\n%s", args[i], settingsUpdateUsage()), nil
 				}

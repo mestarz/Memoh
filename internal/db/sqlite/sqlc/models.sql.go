@@ -36,23 +36,8 @@ func (q *Queries) CountModelsByType(ctx context.Context, type_ string) (int64, e
 const countProviders = `-- name: CountProviders :one
 SELECT COUNT(*)
 FROM providers
-WHERE client_type NOT IN (
-  'edge-speech',
-  'openai-speech',
-  'openai-transcription',
-  'openrouter-speech',
-  'openrouter-transcription',
-  'elevenlabs-speech',
-  'elevenlabs-transcription',
-  'deepgram-speech',
-  'deepgram-transcription',
-  'minimax-speech',
-  'volcengine-speech',
-  'alibabacloud-speech',
-  'microsoft-speech',
-  'google-speech',
-  'google-transcription'
-)
+WHERE client_type NOT LIKE '%-speech'
+  AND client_type NOT LIKE '%-transcription'
 `
 
 func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
@@ -872,23 +857,8 @@ func (q *Queries) ListModelsByType(ctx context.Context, type_ string) ([]Model, 
 
 const listProviders = `-- name: ListProviders :many
 SELECT id, name, client_type, icon, enable, config, metadata, created_at, updated_at FROM providers
-WHERE client_type NOT IN (
-  'edge-speech',
-  'openai-speech',
-  'openai-transcription',
-  'openrouter-speech',
-  'openrouter-transcription',
-  'elevenlabs-speech',
-  'elevenlabs-transcription',
-  'deepgram-speech',
-  'deepgram-transcription',
-  'minimax-speech',
-  'volcengine-speech',
-  'alibabacloud-speech',
-  'microsoft-speech',
-  'google-speech',
-  'google-transcription'
-)
+WHERE client_type NOT LIKE '%-speech'
+  AND client_type NOT LIKE '%-transcription'
 ORDER BY created_at DESC
 `
 

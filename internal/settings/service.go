@@ -86,10 +86,14 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 		return Settings{}, err
 	}
 	current := normalizeBotSetting(botRow.Language, aclDefaultEffect, botRow.ReasoningEnabled, botRow.ReasoningEffort, botRow.HeartbeatEnabled, botRow.HeartbeatInterval, botRow.CompactionEnabled, botRow.CompactionThreshold, botRow.CompactionRatio)
-	if settingsRow, err := s.queries.GetSettingsByBotID(ctx, pgID); err == nil {
-		current.ToolApprovalConfig = parseToolApprovalConfig(settingsRow.ToolApprovalConfig)
-		current.DisplayEnabled = settingsRow.DisplayEnabled
+	settingsRow, err := s.queries.GetSettingsByBotID(ctx, pgID)
+	if err != nil {
+		return Settings{}, err
 	}
+	current.ToolApprovalConfig = parseToolApprovalConfig(settingsRow.ToolApprovalConfig)
+	current.DisplayEnabled = settingsRow.DisplayEnabled
+	current.ShowToolCallsInIM = settingsRow.ShowToolCallsInIm
+	current.PersistFullToolResults = settingsRow.PersistFullToolResults
 	current.OverlayEnabled = overlayBindingRow.OverlayEnabled
 	current.OverlayProvider = strings.TrimSpace(overlayBindingRow.OverlayProvider)
 	current.OverlayConfig = normalizeJSONObject(overlayBindingRow.OverlayConfig)
@@ -149,79 +153,45 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	if req.OverlayConfig != nil {
 		current.OverlayConfig = req.OverlayConfig
 	}
-	chatModelUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.ChatModelID); value != "" {
-		modelID, err := s.resolveModelUUID(ctx, value)
-		if err != nil {
-			return Settings{}, err
-		}
-		chatModelUUID = modelID
+	// Three-state model/provider UUID resolution:
+	//   nil (field absent in request) → preserve existing value from DB
+	//   "" (empty string) → clear (set to NULL)
+	//   "uuid" or "model_id" → resolve and set new value
+	chatModelUUID, err := s.resolveOptionalModelField(ctx, req.ChatModelID, settingsRow.ChatModelID)
+	if err != nil {
+		return Settings{}, err
 	}
-	heartbeatModelUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.HeartbeatModelID); value != "" {
-		modelID, err := s.resolveModelUUID(ctx, value)
-		if err != nil {
-			return Settings{}, err
-		}
-		heartbeatModelUUID = modelID
+	heartbeatModelUUID, err := s.resolveOptionalModelField(ctx, req.HeartbeatModelID, settingsRow.HeartbeatModelID)
+	if err != nil {
+		return Settings{}, err
 	}
-	compactionModelUUID := pgtype.UUID{}
-	if req.CompactionModelID != nil {
-		if value := strings.TrimSpace(*req.CompactionModelID); value != "" {
-			modelID, err := s.resolveModelUUID(ctx, value)
-			if err != nil {
-				return Settings{}, err
-			}
-			compactionModelUUID = modelID
-		}
+	compactionModelUUID, err := s.resolveOptionalModelField(ctx, req.CompactionModelID, settingsRow.CompactionModelID)
+	if err != nil {
+		return Settings{}, err
 	}
-	titleModelUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.TitleModelID); value != "" {
-		modelID, err := s.resolveModelUUID(ctx, value)
-		if err != nil {
-			return Settings{}, err
-		}
-		titleModelUUID = modelID
+	titleModelUUID, err := s.resolveOptionalModelField(ctx, req.TitleModelID, settingsRow.TitleModelID)
+	if err != nil {
+		return Settings{}, err
 	}
-	imageModelUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.ImageModelID); value != "" {
-		modelID, err := s.resolveModelUUID(ctx, value)
-		if err != nil {
-			return Settings{}, err
-		}
-		imageModelUUID = modelID
+	imageModelUUID, err := s.resolveOptionalModelField(ctx, req.ImageModelID, settingsRow.ImageModelID)
+	if err != nil {
+		return Settings{}, err
 	}
-	searchProviderUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.SearchProviderID); value != "" {
-		providerID, err := db.ParseUUID(value)
-		if err != nil {
-			return Settings{}, err
-		}
-		searchProviderUUID = providerID
+	searchProviderUUID, err := s.resolveOptionalProviderField(req.SearchProviderID, settingsRow.SearchProviderID)
+	if err != nil {
+		return Settings{}, err
 	}
-	memoryProviderUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.MemoryProviderID); value != "" {
-		providerID, err := db.ParseUUID(value)
-		if err != nil {
-			return Settings{}, err
-		}
-		memoryProviderUUID = providerID
+	memoryProviderUUID, err := s.resolveOptionalProviderField(req.MemoryProviderID, settingsRow.MemoryProviderID)
+	if err != nil {
+		return Settings{}, err
 	}
-	ttsModelUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.TtsModelID); value != "" {
-		modelID, err := db.ParseUUID(value)
-		if err != nil {
-			return Settings{}, err
-		}
-		ttsModelUUID = modelID
+	ttsModelUUID, err := s.resolveOptionalProviderField(req.TtsModelID, settingsRow.TtsModelID)
+	if err != nil {
+		return Settings{}, err
 	}
-	transcriptionModelUUID := pgtype.UUID{}
-	if value := strings.TrimSpace(req.TranscriptionModelID); value != "" {
-		modelID, err := db.ParseUUID(value)
-		if err != nil {
-			return Settings{}, err
-		}
-		transcriptionModelUUID = modelID
+	transcriptionModelUUID, err := s.resolveOptionalProviderField(req.TranscriptionModelID, settingsRow.TranscriptionModelID)
+	if err != nil {
+		return Settings{}, err
 	}
 	toolApprovalConfig, err := json.Marshal(current.ToolApprovalConfig)
 	if err != nil {
@@ -640,4 +610,33 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 		return pgtype.Text{}, fmt.Errorf("invalid timezone: %w", err)
 	}
 	return pgtype.Text{String: loc.String(), Valid: true}, nil
+}
+
+// resolveOptionalModelField handles the three-state model UUID resolution:
+//   - nil (field absent) → preserve existing value
+//   - "" (empty string) → clear (NULL)
+//   - non-empty string → resolve by UUID or model_id and set
+func (s *Service) resolveOptionalModelField(ctx context.Context, reqField *string, existing pgtype.UUID) (pgtype.UUID, error) {
+	if reqField == nil {
+		return existing, nil
+	}
+	if value := strings.TrimSpace(*reqField); value != "" {
+		return s.resolveModelUUID(ctx, value)
+	}
+	return pgtype.UUID{}, nil
+}
+
+// resolveOptionalProviderField handles the three-state provider/model UUID resolution
+// for fields that accept only raw UUIDs (no model_id lookup):
+//   - nil (field absent) → preserve existing value
+//   - "" (empty string) → clear (NULL)
+//   - non-empty UUID string → parse and set
+func (s *Service) resolveOptionalProviderField(reqField *string, existing pgtype.UUID) (pgtype.UUID, error) {
+	if reqField == nil {
+		return existing, nil
+	}
+	if value := strings.TrimSpace(*reqField); value != "" {
+		return db.ParseUUID(value)
+	}
+	return pgtype.UUID{}, nil
 }
