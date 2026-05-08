@@ -837,7 +837,7 @@ func defaultProviderDefinitions() []ProviderDefinition {
 			Icon:        "openai",
 			Description: "Local GPT-SoVITS voice cloning TTS (OpenAI-compatible adapter)",
 			ConfigSchema: ConfigSchema{Fields: []FieldSchema{
-				stringField("base_url", "Base URL", "GPT-SoVITS OpenAI adapter URL", false, "http://127.0.0.1:9881", 10),
+				stringField("base_url", "Base URL", "GPT-SoVITS OpenAI adapter URL", false, "http://127.0.0.1:9881/v1", 10),
 				advancedStringField("api_key", "API Key", "Optional bearer token (leave empty for local service)", false, "", 20),
 			}},
 			DefaultModel: "gptsovits-tts",
@@ -864,7 +864,7 @@ func defaultProviderDefinitions() []ProviderDefinition {
 				opts := []openaispeech.Option{}
 				baseURL := configString(config, "base_url")
 				if baseURL == "" {
-					baseURL = "http://127.0.0.1:9881"
+					baseURL = "http://127.0.0.1:9881/v1"
 				}
 				opts = append(opts, openaispeech.WithBaseURL(baseURL))
 				if v := configString(config, "api_key"); v != "" {
