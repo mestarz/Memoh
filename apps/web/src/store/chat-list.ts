@@ -683,6 +683,13 @@ export const useChatStore = defineStore('chat', () => {
     stopWebSocket()
     if (!bid) return
     activeWs = connectWebSocket(bid, handleWSStreamEvent)
+    // If the WS drops while a stream is active, inject a synthetic error so the
+    // UI recovers instead of staying frozen in the loading/streaming state.
+    activeWs.onClose = () => {
+      if (streamingSessionId.value !== null || pendingAssistantStream) {
+        handleWSStreamEvent({ type: 'error', message: 'Connection lost' })
+      }
+    }
   }
 
   function ensureWebSocket(targetBotId: string): ChatWebSocket | null {
