@@ -109,6 +109,13 @@ func (r *Resolver) prepareGatewayAttachments(ctx context.Context, req conversati
 		}
 		item = normalizeGatewayAttachmentPayload(item)
 		item = r.inlineImageAttachmentAssetIfNeeded(ctx, strings.TrimSpace(req.BotID), item)
+		// 对已入库（有 storage_key 元数据）但仍无 FallbackPath 的附件，
+		// 通过 storage_key 推断容器内文件路径，避免非图片附件被丢弃。
+		if strings.TrimSpace(item.FallbackPath) == "" {
+			if storageKey := attachmentpkg.MetadataString(item.Metadata, attachmentpkg.MetadataKeyStorageKey); storageKey != "" {
+				item.FallbackPath = attachmentpkg.MediaAccessPath(storageKey)
+			}
+		}
 		prepared = append(prepared, item)
 	}
 	return prepared
