@@ -79,9 +79,8 @@ case "$ACTION" in
   restart)
     setup_proxy
     setup_host_ip
-    log "Restarting services..."
-    docker compose $PROFILES down
-    docker compose $PROFILES up -d
-    log "Services restarted. Server: http://localhost:8080  Web: http://localhost:8082  Browser: http://localhost:8083"
+    log "Recreating server and web with latest images..."
+    docker compose up -d --force-recreate --no-deps server web
+    log "Services restarted. Server: http://localhost:8080  Web: http://localhost:8082"
     ;;
 esac

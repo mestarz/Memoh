@@ -39,15 +39,18 @@ func (r *Resolver) storeRoundWithOptions(ctx context.Context, req conversation.C
 		fullRound = repairToolCallClosures(fullRound, syntheticToolClosureError)
 	}
 
-	// Filter out empty assistant messages (content: []) that result from LLM
-	// returning no useful output (e.g., context window overflow). These provide
-	// no value and pollute the conversation history, causing subsequent turns
-	// to also produce empty responses.
+	// Filter out empty assistant messages (content: [] or reasoning-only) that
+	// result from LLM returning no useful output (e.g., context window overflow,
+	// or extended-thinking models exhausting their reasoning budget). These
+	// provide no value and pollute the conversation history, causing subsequent
+	// turns to also produce empty responses ("contagion effect").
 	filtered := make([]conversation.ModelMessage, 0, len(fullRound))
 	for _, m := range fullRound {
 		if m.Role == "assistant" && isEmptyAssistantMessage(m) {
-			r.logger.Warn("skipping empty assistant message in storeRound",
+			reasoningOnly := isReasoningOnlyContent(m.Content)
+			r.logger.Warn("skipping non-actionable assistant message in storeRound",
 				slog.String("bot_id", req.BotID),
+				slog.Bool("reasoning_only", reasoningOnly),
 			)
 			continue
 		}
@@ -66,6 +69,9 @@ func (r *Resolver) storeRoundWithOptions(ctx context.Context, req conversation.C
 
 // isEmptyAssistantMessage returns true if an assistant message has no
 // meaningful content: no text, no tool calls, and no attachments.
+// This also covers messages that contain only reasoning/thinking blocks
+// with no text or tool-use output — a known edge case with extended-thinking
+// models (e.g. Claude) that exhaust their token budget during reasoning.
 func isEmptyAssistantMessage(m conversation.ModelMessage) bool {
 	if len(m.ToolCalls) > 0 {
 		return false
@@ -76,7 +82,39 @@ func isEmptyAssistantMessage(m conversation.ModelMessage) bool {
 	}
 	// Check if content is empty array "[]" or null/empty
 	content := strings.TrimSpace(string(m.Content))
-	return content == "" || content == "[]" || content == "null"
+	if content == "" || content == "[]" || content == "null" {
+		return true
+	}
+	// Also treat messages with ONLY reasoning/thinking blocks as empty.
+	// Extended-thinking models may exhaust their reasoning budget and return
+	// no tool calls or text; storing these turns pollutes history and causes
+	// subsequent turns to produce the same empty responses ("contagion effect").
+	return isReasoningOnlyContent(m.Content)
+}
+
+// isReasoningOnlyContent returns true when the JSON content array contains
+// only reasoning or redacted-thinking typed blocks and no actionable content
+// (text, tool_use, image, etc.).
+func isReasoningOnlyContent(content json.RawMessage) bool {
+	if len(content) == 0 {
+		return false
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(content, &blocks); err != nil || len(blocks) == 0 {
+		return false
+	}
+	for _, b := range blocks {
+		switch b.Type {
+		case "reasoning", "thinking", "redacted_thinking":
+			// Non-actionable reasoning block — continue checking.
+		default:
+			// Any other block type (text, tool_use, image…) makes the message actionable.
+			return false
+		}
+	}
+	return true
 }
 
 // StoreRound persists SDK messages as a complete round (assistant + tool

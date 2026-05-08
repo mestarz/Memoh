@@ -124,8 +124,14 @@ func (*Service) ListMeta(_ context.Context) []ProviderMeta {
 					"api_key": {
 						Type:        "secret",
 						Title:       "API Key",
-						Description: "Tavily Search API key",
-						Required:    true,
+						Description: "Tavily Search API key (single key, ignored when api_keys pool is set)",
+						Required:    false,
+					},
+					"api_keys": {
+						Type:        "secret_list",
+						Title:       "API Key Pool",
+						Description: "List of Tavily API keys for round-robin rotation",
+						Required:    false,
 					},
 					"base_url": {
 						Type:        "string",

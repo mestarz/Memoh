@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/memohai/memoh/internal/agent/tools/websearch"
 	"github.com/memohai/memoh/internal/searchproviders"
 )
 
@@ -30,6 +33,7 @@ func (h *SearchProvidersHandler) Register(e *echo.Echo) {
 	group.GET("/:id", h.Get)
 	group.PUT("/:id", h.Update)
 	group.DELETE("/:id", h.Delete)
+	group.GET("/:id/probe-keys", h.ProbeKeys)
 }
 
 // ListMeta godoc
@@ -160,4 +164,70 @@ func (h *SearchProvidersHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+// ProbeKeys godoc
+// @Summary Probe Tavily API key usage
+// @Description Query usage stats for all Tavily API keys in a provider's pool. Only supported for Tavily providers.
+// @Tags search-providers
+// @Produce json
+// @Param id path string true "Provider ID"
+// @Success 200 {array} websearch.TavilyKeyUsage
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /search-providers/{id}/probe-keys [get].
+func (h *SearchProvidersHandler) ProbeKeys(c echo.Context) error {
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "id is required")
+	}
+	row, err := h.service.GetRawByID(c.Request().Context(), id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+	if row.Provider != "tavily" {
+		return echo.NewHTTPError(http.StatusBadRequest, "probe-keys is only supported for Tavily providers")
+	}
+
+	var cfg map[string]any
+	if len(row.Config) > 0 {
+		_ = json.Unmarshal(row.Config, &cfg)
+	}
+
+	pool := websearch.TavilyAPIKeyPool(cfg)
+	if len(pool) == 0 {
+		if v, _ := cfg["api_key"].(string); strings.TrimSpace(v) != "" {
+			pool = []string{v}
+		}
+	}
+
+	endpoint := "https://api.tavily.com/search"
+	if v, _ := cfg["base_url"].(string); strings.TrimSpace(v) != "" {
+		endpoint = v
+	}
+
+	type probeJob struct {
+		idx int
+		key string
+	}
+	jobs := make([]probeJob, len(pool))
+	for i, k := range pool {
+		jobs[i] = probeJob{idx: i, key: k}
+	}
+
+	results := make([]websearch.TavilyKeyUsage, len(pool))
+	var wg sync.WaitGroup
+	for _, job := range jobs {
+		wg.Add(1)
+		go func(j probeJob) {
+			defer wg.Done()
+			usage := websearch.QueryKeyUsage(c.Request().Context(), j.key, endpoint)
+			usage.Index = j.idx
+			usage.MaskedKey = websearch.MaskAPIKey(j.key)
+			results[j.idx] = usage
+		}(job)
+	}
+	wg.Wait()
+
+	return c.JSON(http.StatusOK, results)
 }
