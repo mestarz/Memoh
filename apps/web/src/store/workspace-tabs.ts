@@ -1,5 +1,5 @@
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useChatStore } from '@/store/chat-list'
 import { useChatSelectionStore } from '@/store/chat-selection'
@@ -17,6 +17,7 @@ export type WorkspaceTab =
   | { id: string; type: 'draft'; title: string }
 
 const DRAFT_TAB_ID = 'draft'
+const MAX_TABS = 3
 
 interface BotTabState {
   tabs: WorkspaceTab[]
@@ -59,6 +60,11 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
   const chatStore = useChatStore()
 
   const storage = useStorage<WorkspaceTabsStorage>('workspace-tabs', {})
+
+  // Auto-close state: when a new tab would exceed MAX_TABS and the eviction
+  // candidate is dirty/busy, we pause and ask the user to confirm.
+  const autoCloseCandidate = shallowRef<WorkspaceTab | null>(null)
+  const pendingOpenFn = shallowRef<(() => void) | null>(null)
 
   function ensureBot(botId: string | null | undefined): BotTabState | null {
     const bid = (botId ?? '').trim()
@@ -128,6 +134,44 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     })
   }
 
+  // Returns true if opening can proceed immediately; false if it was deferred
+  // (pending user confirmation) or if there is no room and nothing can be closed.
+  function enforceTabLimit(state: BotTabState, openFn: () => void): boolean {
+    if (state.tabs.length < MAX_TABS) return true
+
+    // Find the oldest non-active tab to evict.
+    const candidate = state.tabs.find(t => t.id !== state.activeId)
+    if (!candidate) {
+      // All tabs are active (shouldn't happen, but just open anyway).
+      return true
+    }
+
+    if (isTabBusy(candidate, state.dirtyFileTabs)) {
+      // Need confirmation before closing dirty/busy tab.
+      autoCloseCandidate.value = candidate
+      pendingOpenFn.value = openFn
+      return false
+    }
+
+    // Clean tab: close silently and let the caller proceed.
+    closeTab(candidate.id)
+    return true
+  }
+
+  function confirmAutoClose() {
+    const fn = pendingOpenFn.value
+    const candidate = autoCloseCandidate.value
+    autoCloseCandidate.value = null
+    pendingOpenFn.value = null
+    if (candidate) closeTab(candidate.id)
+    if (fn) fn()
+  }
+
+  function cancelAutoClose() {
+    autoCloseCandidate.value = null
+    pendingOpenFn.value = null
+  }
+
   function setActive(id: string | null) {
     const state = ensureBot(currentBotId.value)
     if (!state) return
@@ -160,13 +204,14 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
         commit({ ...state, activeId: id })
       }
     } else {
-      const tab: WorkspaceTab = {
-        id,
-        type: 'chat',
-        sessionId: sid,
-        title: title ?? '',
+      const doOpen = () => {
+        const freshState = ensureBot(currentBotId.value)
+        if (!freshState) return
+        const tab: WorkspaceTab = { id, type: 'chat', sessionId: sid, title: title ?? '' }
+        commit({ ...freshState, tabs: [...freshState.tabs, tab], activeId: id })
       }
-      commit({ ...state, tabs: [...state.tabs, tab], activeId: id })
+      if (!enforceTabLimit(state, doOpen)) return
+      doOpen()
     }
     void chatStore.selectSession(sid)
   }
@@ -182,13 +227,14 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
       commit({ ...state, activeId: id })
       return
     }
-    const tab: WorkspaceTab = {
-      id,
-      type: 'file',
-      filePath: path,
-      title: fileBaseName(path),
+    const doOpen = () => {
+      const freshState = ensureBot(currentBotId.value)
+      if (!freshState) return
+      const tab: WorkspaceTab = { id, type: 'file', filePath: path, title: fileBaseName(path) }
+      commit({ ...freshState, tabs: [...freshState.tabs, tab], activeId: id })
     }
-    commit({ ...state, tabs: [...state.tabs, tab], activeId: id })
+    if (!enforceTabLimit(state, doOpen)) return
+    doOpen()
   }
 
   function openDraft() {
@@ -197,11 +243,18 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     const existing = state.tabs.find((t) => t.id === DRAFT_TAB_ID)
     if (existing) {
       commit({ ...state, activeId: DRAFT_TAB_ID })
+      void chatStore.createNewSession()
     } else {
-      const tab: WorkspaceTab = { id: DRAFT_TAB_ID, type: 'draft', title: '' }
-      commit({ ...state, tabs: [...state.tabs, tab], activeId: DRAFT_TAB_ID })
+      const doOpen = () => {
+        const freshState = ensureBot(currentBotId.value)
+        if (!freshState) return
+        const tab: WorkspaceTab = { id: DRAFT_TAB_ID, type: 'draft', title: '' }
+        commit({ ...freshState, tabs: [...freshState.tabs, tab], activeId: DRAFT_TAB_ID })
+        void chatStore.createNewSession()
+      }
+      if (!enforceTabLimit(state, doOpen)) return
+      doOpen()
     }
-    void chatStore.createNewSession()
   }
 
   function promoteDraftToChat(sessionId: string, title?: string) {
@@ -240,17 +293,14 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     if (!state) return
     const nextCounter = state.terminalCounter + 1
     const id = terminalTabId(nextCounter)
-    const tab: WorkspaceTab = {
-      id,
-      type: 'terminal',
-      title: `Terminal ${nextCounter}`,
+    const tab: WorkspaceTab = { id, type: 'terminal', title: `Terminal ${nextCounter}` }
+    const doOpen = () => {
+      const freshState = ensureBot(currentBotId.value)
+      if (!freshState) return
+      commit({ ...freshState, tabs: [...freshState.tabs, tab], activeId: id, terminalCounter: nextCounter })
     }
-    commit({
-      ...state,
-      tabs: [...state.tabs, tab],
-      activeId: id,
-      terminalCounter: nextCounter,
-    })
+    if (!enforceTabLimit(state, doOpen)) return
+    doOpen()
   }
 
   function openDisplay() {
@@ -258,17 +308,14 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     if (!state) return
     const nextCounter = state.displayCounter + 1
     const id = displayTabId(nextCounter)
-    const tab: WorkspaceTab = {
-      id,
-      type: 'display',
-      title: `Desktop ${nextCounter}`,
+    const tab: WorkspaceTab = { id, type: 'display', title: `Desktop ${nextCounter}` }
+    const doOpen = () => {
+      const freshState = ensureBot(currentBotId.value)
+      if (!freshState) return
+      commit({ ...freshState, tabs: [...freshState.tabs, tab], activeId: id, displayCounter: nextCounter })
     }
-    commit({
-      ...state,
-      tabs: [...state.tabs, tab],
-      activeId: id,
-      displayCounter: nextCounter,
-    })
+    if (!enforceTabLimit(state, doOpen)) return
+    doOpen()
   }
 
   function closeTab(id: string) {
@@ -436,6 +483,7 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     tabs,
     activeId,
     activeTab,
+    autoCloseCandidate,
     openChat,
     openFile,
     openTerminal,
@@ -446,6 +494,8 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     closeChatBySession,
     closeAll,
     closeFinished,
+    confirmAutoClose,
+    cancelAutoClose,
     setFileDirty,
     updateChatTitle,
     setActive,

@@ -327,6 +327,9 @@
       "closeAll": "Close all",
       "closeFinished": "Close saved and finished"
     },
+    "autoCloseTitle": "Close tab to continue?",
+    "autoCloseDescription": "The tab \"{title}\" has unsaved changes or is still busy. It will be closed to make room for a new tab.",
+    "autoCloseConfirm": "Close and continue",
     "display": {
       "title": "Desktop",
       "reconnect": "Reconnect",

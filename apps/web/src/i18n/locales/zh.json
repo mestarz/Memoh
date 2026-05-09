@@ -323,6 +323,9 @@
       "closeAll": "关闭全部",
       "closeFinished": "关闭已保存和结束的"
     },
+    "autoCloseTitle": "关闭标签页以继续？",
+    "autoCloseDescription": "标签页「{title}」有未保存的更改或仍在处理中，关闭后将丢失。是否关闭以打开新标签页？",
+    "autoCloseConfirm": "关闭并继续",
     "display": {
       "title": "桌面",
       "reconnect": "重新连接",

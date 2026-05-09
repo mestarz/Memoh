@@ -85,6 +85,26 @@
       </DropdownMenu>
     </div>
   </div>
+
+  <!-- Auto-close confirmation dialog -->
+  <Dialog :open="!!store.autoCloseCandidate" @update:open="(v) => !v && store.cancelAutoClose()">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>{{ t('chat.autoCloseTitle') }}</DialogTitle>
+        <DialogDescription>
+          {{ t('chat.autoCloseDescription', { title: autoCloseCandidateTitle }) }}
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="outline" @click="store.cancelAutoClose()">
+          {{ t('common.cancel') }}
+        </Button>
+        <Button variant="destructive" @click="store.confirmAutoClose()">
+          {{ t('chat.autoCloseConfirm') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -93,6 +113,8 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { File as FileIcon, MessageSquare, Monitor, MoreHorizontal, TerminalSquare, X } from 'lucide-vue-next'
 import {
+  Button,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -140,6 +162,11 @@ watch(
 
 const chatStore = useChatStore()
 const { sessions } = storeToRefs(chatStore)
+
+const autoCloseCandidateTitle = computed(() => {
+  const tab = store.autoCloseCandidate
+  return tab ? resolveTitle(tab) : ''
+})
 
 const sessionTitleById = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
