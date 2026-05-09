@@ -44,7 +44,9 @@
     "details": "Details",
     "pin": "Pin",
     "unpin": "Unpin",
-    "searchTimezone": "Search timezone"
+    "searchTimezone": "Search timezone",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All"
   },
   "auth": {
     "welcome": "Welcome Back",
@@ -1503,7 +1505,16 @@
       "deleteFailed": "Failed to delete skill",
       "saveSuccess": "Skill saved",
       "saveFailed": "Failed to save skill",
-      "loadFailed": "Failed to load skills"
+      "loadFailed": "Failed to load skills",
+      "copyFromBot": "Copy from Bot",
+      "copyFromBotDescription": "Select a bot and choose which skills to copy into this bot.",
+      "copySourceBot": "Source Bot",
+      "copySelectBotPlaceholder": "Select a bot...",
+      "copySelectSkills": "Skills to Copy",
+      "copyNoSkills": "No skills found in this bot",
+      "copyConfirm": "Copy ({count})",
+      "copySuccess": "{count} skill(s) copied successfully",
+      "copyFailed": "Failed to copy skills"
     },
     "compaction": {
       "title": "Compaction Logs",

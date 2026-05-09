@@ -23,6 +23,14 @@
           />
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          @click="handleOpenCopyDialog"
+        >
+          <Copy class="mr-2 size-4" />
+          {{ $t('bots.skills.copyFromBot') }}
+        </Button>
+        <Button
           size="sm"
           @click="handleCreate"
         >
@@ -247,6 +255,119 @@
       </DialogContent>
     </Dialog>
 
+    <!-- Copy from Bot Dialog -->
+    <Dialog v-model:open="isCopyDialogOpen">
+      <DialogContent class="sm:max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
+        <DialogHeader class="shrink-0">
+          <DialogTitle>{{ $t('bots.skills.copyFromBot') }}</DialogTitle>
+          <DialogDescription class="text-xs">
+            {{ $t('bots.skills.copyFromBotDescription') }}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="flex flex-col gap-3 py-2 min-h-0 flex-1 overflow-hidden">
+          <!-- Bot selector -->
+          <div class="space-y-1.5 shrink-0">
+            <Label class="text-xs font-medium">{{ $t('bots.skills.copySourceBot') }}</Label>
+            <Select v-model="copySourceBotId">
+              <SelectTrigger class="w-full">
+                <SelectValue :placeholder="$t('bots.skills.copySelectBotPlaceholder')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="b in otherBots"
+                  :key="b.id!"
+                  :value="b.id!"
+                >
+                  {{ b.display_name || b.id }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <!-- Skills list -->
+          <div
+            v-if="copySourceBotId"
+            class="flex flex-col gap-2 min-h-0 overflow-hidden"
+          >
+            <div class="flex items-center justify-between shrink-0">
+              <Label class="text-xs font-medium">{{ $t('bots.skills.copySelectSkills') }}</Label>
+              <Button
+                v-if="copySourceSkills.length"
+                variant="ghost"
+                size="sm"
+                class="text-xs h-6 px-2"
+                @click="toggleSelectAll"
+              >
+                {{ isAllSelected ? $t('common.deselectAll') : $t('common.selectAll') }}
+              </Button>
+            </div>
+            <div
+              v-if="isCopySourceLoading"
+              class="flex items-center justify-center py-6 text-xs text-muted-foreground"
+            >
+              <Spinner class="mr-2" />
+              {{ $t('common.loading') }}
+            </div>
+            <div
+              v-else-if="!copySourceSkills.length"
+              class="text-xs text-muted-foreground py-4 text-center"
+            >
+              {{ $t('bots.skills.copyNoSkills') }}
+            </div>
+            <div
+              v-else
+              class="overflow-y-auto flex-1 border rounded-md divide-y"
+            >
+              <label
+                v-for="skill in copySourceSkills"
+                :key="skill.name ?? skill.source_path"
+                class="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <Checkbox
+                  :model-value="isSkillSelected(skill.name)"
+                  class="mt-0.5 shrink-0"
+                  @update:model-value="toggleCopySkill(skill.name)"
+                />
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium truncate">
+                    {{ skill.name }}
+                  </p>
+                  <p
+                    v-if="skill.description"
+                    class="text-xs text-muted-foreground truncate"
+                  >
+                    {{ skill.description }}
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter class="shrink-0">
+          <DialogClose as-child>
+            <Button
+              variant="outline"
+              :disabled="isCopying"
+            >
+              {{ $t('common.cancel') }}
+            </Button>
+          </DialogClose>
+          <Button
+            :disabled="!canCopy || isCopying"
+            @click="handleCopySkills"
+          >
+            <Spinner
+              v-if="isCopying"
+              class="mr-2 size-4"
+            />
+            {{ $t('bots.skills.copyConfirm', { count: selectedCopyNames.length }) }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <Dialog v-model:open="isDiscoveryDialogOpen">
       <DialogContent class="sm:max-w-xl">
         <DialogHeader>
@@ -330,25 +451,29 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowDownToLine, Eye, EyeOff, Plus, SlidersHorizontal, Zap, SquarePen, Trash2 } from 'lucide-vue-next'
+import { ArrowDownToLine, Copy, Eye, EyeOff, Plus, SlidersHorizontal, Zap, SquarePen, Trash2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 import { useQuery, useQueryCache } from '@pinia/colada'
 import {
   Badge, Button, Card, CardContent, CardHeader, CardTitle, CardDescription,
+  Checkbox,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
-  Label, Spinner, Textarea,
+  Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Spinner, Textarea,
 } from '@memohai/ui'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import MonacoEditor from '@/components/monaco-editor/index.vue'
 import {
   getBotsById,
+  getBots,
   getBotsByBotIdContainerSkills,
   postBotsByBotIdContainerSkills,
   postBotsByBotIdContainerSkillsActions,
   deleteBotsByBotIdContainerSkills,
   putBotsById,
+  type BotsBot,
   type HandlersSkillItem,
 } from '@memohai/sdk'
 import { getBotsQueryKey } from '@memohai/sdk/colada'
@@ -739,6 +864,116 @@ async function handleDelete(name?: string) {
     deletingName.value = ''
   }
 }
+
+// --- Copy from Bot ---
+
+const isCopyDialogOpen = ref(false)
+const copySourceBotId = ref('')
+const copySourceSkills = ref<SkillItem[]>([])
+const isCopySourceLoading = ref(false)
+const selectedCopyNames = ref<string[]>([])
+const isCopying = ref(false)
+const allBots = ref<BotsBot[]>([])
+
+const otherBots = computed(() => allBots.value.filter(b => b.id !== props.botId))
+const isAllSelected = computed(() =>
+  copySourceSkills.value.length > 0 &&
+  copySourceSkills.value.every(s => s.name && selectedCopyNames.value.includes(s.name)),
+)
+const canCopy = computed(() => selectedCopyNames.value.length > 0 && !isCopySourceLoading.value)
+
+async function handleOpenCopyDialog() {
+  copySourceBotId.value = ''
+  copySourceSkills.value = []
+  selectedCopyNames.value = []
+  isCopyDialogOpen.value = true
+
+  try {
+    const { data } = await getBots({ throwOnError: true })
+    allBots.value = data?.items ?? []
+  } catch {
+    allBots.value = []
+  }
+}
+
+async function loadCopySourceSkills(sourceBotId: string) {
+  if (!sourceBotId) return
+  isCopySourceLoading.value = true
+  selectedCopyNames.value = []
+  copySourceSkills.value = []
+  try {
+    const { data } = await getBotsByBotIdContainerSkills({
+      path: { bot_id: sourceBotId },
+      throwOnError: true,
+    })
+    copySourceSkills.value = (data.skills || []).filter(s => (s as SkillItem).state !== 'disabled' && !!s.name)
+  } catch {
+    copySourceSkills.value = []
+  } finally {
+    isCopySourceLoading.value = false
+  }
+}
+
+function isSkillSelected(name?: string) {
+  return !!name && selectedCopyNames.value.includes(name)
+}
+
+function toggleCopySkill(name?: string) {
+  if (!name) return
+  const idx = selectedCopyNames.value.indexOf(name)
+  if (idx >= 0) {
+    selectedCopyNames.value.splice(idx, 1)
+  } else {
+    selectedCopyNames.value.push(name)
+  }
+}
+
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedCopyNames.value = []
+  } else {
+    selectedCopyNames.value = copySourceSkills.value
+      .map(s => s.name)
+      .filter((n): n is string => !!n)
+  }
+}
+
+async function handleCopySkills() {
+  if (!canCopy.value) return
+  isCopying.value = true
+  try {
+    const rawSkills = copySourceSkills.value
+      .filter(s => s.name && selectedCopyNames.value.includes(s.name) && s.raw)
+      .map(s => s.raw as string)
+    await postBotsByBotIdContainerSkills({
+      path: { bot_id: props.botId },
+      body: { skills: rawSkills },
+      throwOnError: true,
+    })
+    toast.success(t('bots.skills.copySuccess', { count: rawSkills.length }))
+    isCopyDialogOpen.value = false
+    await fetchSkills()
+    invalidateSidebarSkills()
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('bots.skills.copyFailed')))
+  } finally {
+    isCopying.value = false
+  }
+}
+
+watch(copySourceBotId, (id) => {
+  if (id) void loadCopySourceSkills(id)
+})
+
+watch(isCopyDialogOpen, (open) => {
+  if (!open) {
+    copySourceBotId.value = ''
+    copySourceSkills.value = []
+    selectedCopyNames.value = []
+  }
+})
+
+// --- End Copy from Bot ---
 
 watch(() => props.botId, () => {
   if (!props.botId) return

@@ -44,7 +44,9 @@
     "details": "详情",
     "pin": "置顶",
     "unpin": "取消置顶",
-    "searchTimezone": "搜索时区"
+    "searchTimezone": "搜索时区",
+    "selectAll": "全选",
+    "deselectAll": "取消全选"
   },
   "auth": {
     "welcome": "欢迎回来",
@@ -1499,7 +1501,16 @@
       "deleteFailed": "删除技能失败",
       "saveSuccess": "技能已保存",
       "saveFailed": "保存技能失败",
-      "loadFailed": "加载技能失败"
+      "loadFailed": "加载技能失败",
+      "copyFromBot": "从其他 Bot 复制",
+      "copyFromBotDescription": "选择一个 Bot，然后勾选要复制到当前 Bot 的技能。",
+      "copySourceBot": "来源 Bot",
+      "copySelectBotPlaceholder": "选择一个 Bot...",
+      "copySelectSkills": "选择要复制的技能",
+      "copyNoSkills": "该 Bot 没有可用的技能",
+      "copyConfirm": "复制（{count}）",
+      "copySuccess": "成功复制 {count} 个技能",
+      "copyFailed": "复制技能失败"
     },
     "compaction": {
       "title": "压缩记录",
