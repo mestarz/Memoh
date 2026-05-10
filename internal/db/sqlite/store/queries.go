@@ -1302,6 +1302,21 @@ func (q *Queries) GetActiveSessionForRoute(ctx context.Context, routeID pgtype.U
 	return result, nil
 }
 
+func (q *Queries) GetAppSetting(ctx context.Context, key string) (pgsqlc.AppSetting, error) {
+	if q == nil || q.store == nil || q.store.queries == nil {
+		return pgsqlc.AppSetting{}, errSQLiteQueriesNotConfigured
+	}
+	out, err := q.store.queries.GetAppSetting(ctx, key)
+	if err != nil {
+		return pgsqlc.AppSetting{}, mapQueryErr(err)
+	}
+	var result pgsqlc.AppSetting
+	if err := convertValue(out, &result); err != nil {
+		return pgsqlc.AppSetting{}, err
+	}
+	return result, nil
+}
+
 func (q *Queries) GetBindCode(ctx context.Context, token string) (pgsqlc.ChannelIdentityBindCode, error) {
 	if q == nil || q.store == nil || q.store.queries == nil {
 		return pgsqlc.ChannelIdentityBindCode{}, errSQLiteQueriesNotConfigured
@@ -4738,6 +4753,25 @@ func (q *Queries) UpsertAccountByUsername(ctx context.Context, arg pgsqlc.Upsert
 	var result pgsqlc.User
 	if err := convertValue(out, &result); err != nil {
 		return pgsqlc.User{}, err
+	}
+	return result, nil
+}
+
+func (q *Queries) UpsertAppSetting(ctx context.Context, arg pgsqlc.UpsertAppSettingParams) (pgsqlc.AppSetting, error) {
+	if q == nil || q.store == nil || q.store.queries == nil {
+		return pgsqlc.AppSetting{}, errSQLiteQueriesNotConfigured
+	}
+	var sqliteArg sqlitesqlc.UpsertAppSettingParams
+	if err := convertValue(arg, &sqliteArg); err != nil {
+		return pgsqlc.AppSetting{}, err
+	}
+	out, err := q.store.queries.UpsertAppSetting(ctx, sqliteArg)
+	if err != nil {
+		return pgsqlc.AppSetting{}, mapQueryErr(err)
+	}
+	var result pgsqlc.AppSetting
+	if err := convertValue(out, &result); err != nil {
+		return pgsqlc.AppSetting{}, err
 	}
 	return result, nil
 }

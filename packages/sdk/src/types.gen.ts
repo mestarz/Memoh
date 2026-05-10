@@ -853,6 +853,23 @@ export type GithubComMemohaiMemohInternalMcpConnection = {
     updated_at?: string;
 };
 
+export type HandlersAppNetworkSettings = {
+    http_proxy_url?: string;
+};
+
+export type HandlersAppNetworkTestRequest = {
+    http_proxy_url?: string;
+    target_url?: string;
+};
+
+export type HandlersAppNetworkTestResponse = {
+    error?: string;
+    latency_ms?: number;
+    ok?: boolean;
+    status_code?: number;
+    target_url?: string;
+};
+
 export type HandlersBatchDeleteRequest = {
     ids?: Array<string>;
 };
@@ -1268,6 +1285,10 @@ export type HandlersTriggerCompactResponse = {
     message_count?: number;
     status?: string;
     summary?: string;
+};
+
+export type HandlersAvatarUploadResponse = {
+    url?: string;
 };
 
 export type HandlersCreateSessionRequest = {
@@ -1908,6 +1929,102 @@ export type SettingsUpsertRequest = {
     tts_model_id?: string;
 };
 
+export type WebsearchTavilyKeyUsage = {
+    error?: string;
+    index?: number;
+    /**
+     * nil = unlimited
+     */
+    limit?: number;
+    masked_key?: string;
+    usage?: number;
+};
+
+export type GetAppSettingsNetworkData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/app-settings/network';
+};
+
+export type GetAppSettingsNetworkErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetAppSettingsNetworkError = GetAppSettingsNetworkErrors[keyof GetAppSettingsNetworkErrors];
+
+export type GetAppSettingsNetworkResponses = {
+    /**
+     * OK
+     */
+    200: HandlersAppNetworkSettings;
+};
+
+export type GetAppSettingsNetworkResponse = GetAppSettingsNetworkResponses[keyof GetAppSettingsNetworkResponses];
+
+export type PutAppSettingsNetworkData = {
+    /**
+     * Network settings payload
+     */
+    body: HandlersAppNetworkSettings;
+    path?: never;
+    query?: never;
+    url: '/app-settings/network';
+};
+
+export type PutAppSettingsNetworkErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PutAppSettingsNetworkError = PutAppSettingsNetworkErrors[keyof PutAppSettingsNetworkErrors];
+
+export type PutAppSettingsNetworkResponses = {
+    /**
+     * OK
+     */
+    200: HandlersAppNetworkSettings;
+};
+
+export type PutAppSettingsNetworkResponse = PutAppSettingsNetworkResponses[keyof PutAppSettingsNetworkResponses];
+
+export type PostAppSettingsNetworkTestData = {
+    /**
+     * Proxy test payload
+     */
+    body: HandlersAppNetworkTestRequest;
+    path?: never;
+    query?: never;
+    url: '/app-settings/network/test';
+};
+
+export type PostAppSettingsNetworkTestErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostAppSettingsNetworkTestError = PostAppSettingsNetworkTestErrors[keyof PostAppSettingsNetworkTestErrors];
+
+export type PostAppSettingsNetworkTestResponses = {
+    /**
+     * OK
+     */
+    200: HandlersAppNetworkTestResponse;
+};
+
+export type PostAppSettingsNetworkTestResponse = PostAppSettingsNetworkTestResponses[keyof PostAppSettingsNetworkTestResponses];
+
 export type PostAuthLoginData = {
     /**
      * Login request
@@ -1972,6 +2089,27 @@ export type PostAuthRefreshResponses = {
 };
 
 export type PostAuthRefreshResponse = PostAuthRefreshResponses[keyof PostAuthRefreshResponses];
+
+export type PostAvatarsUploadData = {
+    body: {
+        /**
+         * Image file (JPEG/PNG/GIF/WebP, max 5 MB)
+         */
+        image: Blob | File;
+    };
+    path?: never;
+    query?: never;
+    url: '/avatars/upload';
+};
+
+export type PostAvatarsUploadResponses = {
+    /**
+     * OK
+     */
+    200: HandlersAvatarUploadResponse;
+};
+
+export type PostAvatarsUploadResponse = PostAvatarsUploadResponses[keyof PostAvatarsUploadResponses];
 
 export type GetBotsData = {
     body?: never;
@@ -6273,6 +6411,41 @@ export type PostBotsByBotIdToolsResponses = {
 
 export type PostBotsByBotIdToolsResponse = PostBotsByBotIdToolsResponses[keyof PostBotsByBotIdToolsResponses];
 
+export type PostBotsByBotIdTtsRenderData = {
+    /**
+     * Text to synthesize
+     */
+    body: HandlersSynthesizeRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/tts/render';
+};
+
+export type PostBotsByBotIdTtsRenderErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdTtsRenderError = PostBotsByBotIdTtsRenderErrors[keyof PostBotsByBotIdTtsRenderErrors];
+
+export type PostBotsByBotIdTtsRenderResponses = {
+    /**
+     * Audio data
+     */
+    200: unknown;
+};
+
 export type PostBotsByBotIdTtsSynthesizeData = {
     /**
      * Text to synthesize
@@ -8532,6 +8705,40 @@ export type PutSearchProvidersByIdResponses = {
 };
 
 export type PutSearchProvidersByIdResponse = PutSearchProvidersByIdResponses[keyof PutSearchProvidersByIdResponses];
+
+export type GetSearchProvidersByIdProbeKeysData = {
+    body?: never;
+    path: {
+        /**
+         * Provider ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/search-providers/{id}/probe-keys';
+};
+
+export type GetSearchProvidersByIdProbeKeysErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+};
+
+export type GetSearchProvidersByIdProbeKeysError = GetSearchProvidersByIdProbeKeysErrors[keyof GetSearchProvidersByIdProbeKeysErrors];
+
+export type GetSearchProvidersByIdProbeKeysResponses = {
+    /**
+     * OK
+     */
+    200: Array<WebsearchTavilyKeyUsage>;
+};
+
+export type GetSearchProvidersByIdProbeKeysResponse = GetSearchProvidersByIdProbeKeysResponses[keyof GetSearchProvidersByIdProbeKeysResponses];
 
 export type GetSpeechModelsData = {
     body?: never;

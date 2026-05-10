@@ -239,7 +239,8 @@ func TestFetchRemoteModelsFromAnthropicUsesAnthropicHeaders(t *testing.T) {
 	}))
 	defer server.Close()
 
-	remoteModels, err := fetchRemoteModelsFromProvider(context.Background(), sqlc.Provider{
+	svc := &Service{}
+	remoteModels, err := svc.fetchRemoteModelsFromProvider(context.Background(), sqlc.Provider{
 		ClientType: string(models.ClientTypeAnthropicMessages),
 		Config:     []byte(`{"base_url":"` + server.URL + `","api_key":"sk-ant-test"}`),
 	})

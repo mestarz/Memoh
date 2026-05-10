@@ -8,6 +8,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AppSetting struct {
+	Key       string             `json:"key"`
+	Value     []byte             `json:"value"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Bot struct {
 	ID                     pgtype.UUID        `json:"id"`
 	OwnerUserID            pgtype.UUID        `json:"owner_user_id"`

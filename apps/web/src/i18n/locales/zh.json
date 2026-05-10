@@ -79,7 +79,8 @@
     "platform": "接入平台",
     "usage": "用量统计",
     "supermarket": "市场",
-    "about": "关于"
+    "about": "关于",
+    "networkProxy": "网络代理"
   },
   "breadcrumb": {
     "main": "主页"
@@ -487,7 +488,10 @@
         "missing": "尚未授权。",
         "notConfigured": "当前提供商未正确配置 OAuth。"
       }
-    }
+    },
+    "useProxy": "使用代理",
+    "useProxyDescription": "通过\"网络代理\"中配置的全局代理转发该 Provider 的所有出站流量（OAuth、模型调用、探测等）。",
+    "useProxyDisabled": "请先在\"网络代理\"设置中填写代理地址，再开启此选项。"
   },
   "webSearch": {
     "title": "搜索提供方",
@@ -1747,5 +1751,23 @@
     "skillInstallTitle": "安装 Skill",
     "loadError": "从市场加载失败",
     "submit": "提交"
+  },
+  "networkProxy": {
+    "title": "网络代理",
+    "description": "配置一个全局 HTTP 代理。开启代理开关的 Provider 会通过此代理发送 OAuth、模型调用、探测等出站流量。",
+    "urlLabel": "代理地址",
+    "urlPlaceholder": "http://127.0.0.1:7890",
+    "urlHint": "支持 http、https、socks5、socks5h；留空可禁用代理。",
+    "errorScheme": "协议必须为 http、https、socks5 或 socks5h。",
+    "errorHost": "代理地址必须包含主机名。",
+    "errorInvalid": "代理地址无效。",
+    "saveSuccess": "网络设置已保存。",
+    "saveFailed": "网络设置保存失败。",
+    "clear": "清空",
+    "test": "测试",
+    "testing": "测试中…",
+    "testSuccess": "代理可达（{status}，{latency} ms）",
+    "testFailed": "代理测试失败：{error}",
+    "testTarget": "测试地址"
   }
 }

@@ -115,11 +115,16 @@ func (r *Resolver) buildCompactionConfig(ctx context.Context, req conversation.C
 	if err != nil {
 		return compaction.TriggerConfig{}, err
 	}
-	authResolver := providers.NewService(nil, r.queries, "")
+	authResolver := providers.NewService(nil, r.queries, "", r.appSettings)
 	authCtx := oauthctx.WithUserID(ctx, req.UserID)
 	creds, err := authResolver.ResolveModelCredentials(authCtx, compactProvider)
 	if err != nil {
 		return compaction.TriggerConfig{}, err
+	}
+
+	httpClient := r.streamHTTPClient
+	if creds.HTTPClient != nil {
+		httpClient = creds.HTTPClient
 	}
 
 	cfg := compaction.TriggerConfig{
@@ -132,7 +137,7 @@ func (r *Resolver) buildCompactionConfig(ctx context.Context, req conversation.C
 		BaseURL:          providers.ProviderConfigString(compactProvider, "base_url"),
 		Ratio:            ratio,
 		TotalInputTokens: inputTokens,
-		HTTPClient:       r.streamHTTPClient,
+		HTTPClient:       httpClient,
 		PromptCacheTTL:   providers.ProviderConfigString(compactProvider, "prompt_cache_ttl"),
 	}
 

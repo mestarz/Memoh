@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	memohcopilot "github.com/memohai/memoh/internal/copilot"
@@ -18,13 +19,35 @@ const openAIAuthClaimPath = "https://api.openai.com/auth"
 type ModelCredentials struct {
 	APIKey         string //nolint:gosec // runtime credential material used to construct SDK providers
 	CodexAccountID string
+	// HTTPClient is set when the provider has opted into using the global
+	// HTTP proxy. Callers should pass it through to NewSDKChatModel /
+	// NewSDKProvider so that all SDK traffic for this provider is proxied.
+	// When nil, callers should construct the default HTTP client.
+	HTTPClient *http.Client
 }
 
 func SupportsOpenAICodexOAuth(provider sqlc.Provider) bool {
 	return supportsOAuth(provider)
 }
 
+// ResolveProviderHTTPClient returns an HTTP client routed through the global
+// HTTP proxy when the provider has opted in and a proxy URL is configured.
+// Returns nil when no proxy override is needed; callers should then build a
+// default client.
+func (s *Service) ResolveProviderHTTPClient(ctx context.Context, provider sqlc.Provider) *http.Client {
+	if !ProviderUsesProxy(provider) || s.appSettings == nil {
+		return nil
+	}
+	proxyURL, err := s.appSettings.GetHTTPProxyURL(ctx)
+	if err != nil || strings.TrimSpace(proxyURL) == "" {
+		return nil
+	}
+	return models.NewProviderHTTPClientWithProxy(0, proxyURL)
+}
+
 func (s *Service) ResolveModelCredentials(ctx context.Context, provider sqlc.Provider) (ModelCredentials, error) {
+	httpClient := s.ResolveProviderHTTPClient(ctx, provider)
+
 	switch models.ClientType(provider.ClientType) {
 	case models.ClientTypeGitHubCopilot:
 		githubToken, err := s.GetValidAccessToken(ctx, provider.ID.String())
@@ -35,7 +58,7 @@ func (s *Service) ResolveModelCredentials(ctx context.Context, provider sqlc.Pro
 		if err != nil {
 			return ModelCredentials{}, err
 		}
-		return ModelCredentials{APIKey: copilotToken}, nil
+		return ModelCredentials{APIKey: copilotToken, HTTPClient: httpClient}, nil
 
 	case models.ClientTypeOpenAICodex:
 		token, err := s.GetValidAccessToken(ctx, provider.ID.String())
@@ -49,12 +72,14 @@ func (s *Service) ResolveModelCredentials(ctx context.Context, provider sqlc.Pro
 		return ModelCredentials{
 			APIKey:         token,
 			CodexAccountID: accountID,
+			HTTPClient:     httpClient,
 		}, nil
 
 	default:
 		apiKey := ProviderConfigString(provider, "api_key")
 		return ModelCredentials{
-			APIKey: apiKey,
+			APIKey:     apiKey,
+			HTTPClient: httpClient,
 		}, nil
 	}
 }

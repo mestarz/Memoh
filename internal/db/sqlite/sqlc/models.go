@@ -8,6 +8,12 @@ import (
 	"database/sql"
 )
 
+type AppSetting struct {
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 type Bot struct {
 	ID                     string         `json:"id"`
 	OwnerUserID            string         `json:"owner_user_id"`

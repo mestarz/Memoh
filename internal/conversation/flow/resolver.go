@@ -22,6 +22,7 @@ import (
 	"github.com/memohai/memoh/internal/accounts"
 	agentpkg "github.com/memohai/memoh/internal/agent"
 	"github.com/memohai/memoh/internal/agent/background"
+	"github.com/memohai/memoh/internal/appsettings"
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/compaction"
 	"github.com/memohai/memoh/internal/conversation"
@@ -98,6 +99,7 @@ type Resolver struct {
 	timeout           time.Duration
 	clockLocation     *time.Location
 	logger            *slog.Logger
+	appSettings       *appsettings.Service
 }
 
 // NewResolver creates a Resolver that uses the internal agent directly.
@@ -157,6 +159,12 @@ func NewResolver(
 // SetMemoryRegistry sets the provider registry for memory operations.
 func (r *Resolver) SetMemoryRegistry(registry *memprovider.Registry) {
 	r.memoryRegistry = registry
+}
+
+// SetAppSettings wires the global app-settings service so the resolver can
+// honor per-provider proxy preferences when resolving credentials.
+func (r *Resolver) SetAppSettings(s *appsettings.Service) {
+	r.appSettings = s
 }
 
 // SetSkillLoader sets the skill loader used to populate usable skills in gateway requests.
@@ -545,11 +553,16 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		reasoningConfig = &models.ReasoningConfig{Enabled: true, Effort: reasoningEffort}
 	}
 
-	authResolver := providers.NewService(nil, r.queries, "")
+	authResolver := providers.NewService(nil, r.queries, "", r.appSettings)
 	authCtx := oauthctx.WithUserID(ctx, p.UserID)
 	creds, err := authResolver.ResolveModelCredentials(authCtx, provider)
 	if err != nil {
 		return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, fmt.Errorf("resolve provider credentials: %w", err)
+	}
+
+	httpClient := r.streamHTTPClient
+	if creds.HTTPClient != nil {
+		httpClient = creds.HTTPClient
 	}
 
 	sdkModel := models.NewSDKChatModel(models.SDKModelConfig{
@@ -558,7 +571,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		APIKey:          creds.APIKey,
 		CodexAccountID:  creds.CodexAccountID,
 		BaseURL:         providers.ProviderConfigString(provider, "base_url"),
-		HTTPClient:      r.streamHTTPClient,
+		HTTPClient:      httpClient,
 		ReasoningConfig: reasoningConfig,
 	})
 

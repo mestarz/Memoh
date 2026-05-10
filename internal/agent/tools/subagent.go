@@ -622,7 +622,7 @@ func (p *SpawnProvider) resolveModel(ctx context.Context, botID string) (*sdk.Mo
 	if p.modelCreator == nil {
 		return nil, "", "", errors.New("model creator not configured")
 	}
-	authResolver := providers.NewService(nil, p.queries, "")
+	authResolver := providers.NewService(nil, p.queries, "", nil)
 	creds, err := authResolver.ResolveModelCredentials(ctx, provider)
 	if err != nil {
 		return nil, "", "", err

@@ -1426,6 +1426,31 @@ definitions:
       updated_at:
         type: string
     type: object
+  handlers.AppNetworkSettings:
+    properties:
+      http_proxy_url:
+        type: string
+    type: object
+  handlers.AppNetworkTestRequest:
+    properties:
+      http_proxy_url:
+        type: string
+      target_url:
+        type: string
+    type: object
+  handlers.AppNetworkTestResponse:
+    properties:
+      error:
+        type: string
+      latency_ms:
+        type: integer
+      ok:
+        type: boolean
+      status_code:
+        type: integer
+      target_url:
+        type: string
+    type: object
   handlers.BatchDeleteRequest:
     properties:
       ids:
@@ -2126,6 +2151,11 @@ definitions:
       status:
         type: string
       summary:
+        type: string
+    type: object
+  handlers.avatarUploadResponse:
+    properties:
+      url:
         type: string
     type: object
   handlers.createSessionRequest:
@@ -3200,11 +3230,89 @@ definitions:
       tts_model_id:
         type: string
     type: object
+  websearch.TavilyKeyUsage:
+    properties:
+      error:
+        type: string
+      index:
+        type: integer
+      limit:
+        description: nil = unlimited
+        type: integer
+      masked_key:
+        type: string
+      usage:
+        type: integer
+    type: object
 info:
   contact: {}
   title: Memoh API
   version: 1.0.0
 paths:
+  /app-settings/network:
+    get:
+      description: Returns the global HTTP proxy URL applied to providers that opted
+        in.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AppNetworkSettings'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get network/proxy settings
+      tags:
+      - app-settings
+    put:
+      description: Sets the global HTTP proxy URL. An empty value clears the proxy.
+      parameters:
+      - description: Network settings payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AppNetworkSettings'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AppNetworkSettings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update network/proxy settings
+      tags:
+      - app-settings
+  /app-settings/network/test:
+    post:
+      description: Issues an HTTP GET against target_url through the proxy and reports
+        outcome.
+      parameters:
+      - description: Proxy test payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AppNetworkTestRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AppNetworkTestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Test the configured (or supplied) HTTP proxy
+      tags:
+      - app-settings
   /auth/login:
     post:
       description: Validate user credentials and issue a JWT
@@ -3256,6 +3364,28 @@ paths:
       summary: Refresh Token
       tags:
       - auth
+  /avatars/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a JPEG/PNG/GIF/WebP image as an avatar; returns its serving
+        URL.
+      parameters:
+      - description: Image file (JPEG/PNG/GIF/WebP, max 5 MB)
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.avatarUploadResponse'
+      summary: Upload an avatar image
+      tags:
+      - avatars
   /bots:
     get:
       description: List bots accessible to current user (admin can specify owner_id)
@@ -6736,6 +6866,42 @@ paths:
       summary: Unified MCP tools gateway
       tags:
       - containerd
+  /bots/{bot_id}/tts/render:
+    post:
+      consumes:
+      - application/json
+      description: Synthesize text using the bot's configured TTS model and return
+        raw audio bytes
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Text to synthesize
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.synthesizeRequest'
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Audio data
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Render speech for a bot and return audio directly
+      tags:
+      - bots
   /bots/{bot_id}/tts/synthesize:
     post:
       consumes:
@@ -8555,6 +8721,36 @@ paths:
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Update a search provider
+      tags:
+      - search-providers
+  /search-providers/{id}/probe-keys:
+    get:
+      description: Query usage stats for all Tavily API keys in a provider's pool.
+        Only supported for Tavily providers.
+      parameters:
+      - description: Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/websearch.TavilyKeyUsage'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Probe Tavily API key usage
       tags:
       - search-providers
   /search-providers/meta:

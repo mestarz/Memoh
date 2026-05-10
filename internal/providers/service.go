@@ -22,16 +22,25 @@ import (
 	"github.com/memohai/memoh/internal/models"
 )
 
+// AppSettingsResolver resolves app-wide settings used by the provider service
+// (currently the global HTTP proxy URL). Implemented by *appsettings.Service.
+// The interface keeps the providers package free from a dependency on the
+// concrete service type and allows tests to stub the lookup.
+type AppSettingsResolver interface {
+	GetHTTPProxyURL(ctx context.Context) (string, error)
+}
+
 // Service handles provider operations.
 type Service struct {
 	queries     dbstore.Queries
 	logger      *slog.Logger
 	httpClient  *http.Client
 	callbackURL string
+	appSettings AppSettingsResolver
 }
 
 // NewService creates a new provider service.
-func NewService(log *slog.Logger, queries dbstore.Queries, callbackURL string) *Service {
+func NewService(log *slog.Logger, queries dbstore.Queries, callbackURL string, appSettings AppSettingsResolver) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -40,7 +49,26 @@ func NewService(log *slog.Logger, queries dbstore.Queries, callbackURL string) *
 		logger:      log.With(slog.String("service", "providers")),
 		httpClient:  &http.Client{Timeout: providerOAuthHTTPTimeout},
 		callbackURL: callbackURL,
+		appSettings: appSettings,
 	}
+}
+
+// httpClientForProxy returns an HTTP client routed through the configured
+// global HTTP proxy when useProxy is true and a proxy URL is configured.
+// Otherwise it returns the shared default HTTP client.
+func (s *Service) httpClientForProxy(ctx context.Context, useProxy bool) *http.Client {
+	if !useProxy || s.appSettings == nil {
+		return s.httpClient
+	}
+	proxyURL, err := s.appSettings.GetHTTPProxyURL(ctx)
+	if err != nil {
+		s.logger.Warn("resolve global http proxy", slog.String("error", err.Error()))
+		return s.httpClient
+	}
+	if strings.TrimSpace(proxyURL) == "" {
+		return s.httpClient
+	}
+	return models.NewProviderHTTPClientWithProxy(providerOAuthHTTPTimeout, proxyURL)
 }
 
 // Create creates a new provider.
@@ -237,7 +265,7 @@ func (s *Service) Test(ctx context.Context, id string) (TestResponse, error) {
 		return TestResponse{}, err
 	}
 
-	sdkProvider := models.NewSDKProvider(baseURL, creds.APIKey, creds.CodexAccountID, clientType, probeTimeout, nil)
+	sdkProvider := models.NewSDKProvider(baseURL, creds.APIKey, creds.CodexAccountID, clientType, probeTimeout, creds.HTTPClient)
 
 	start := time.Now()
 	result := sdkProvider.Test(ctx)
@@ -266,7 +294,7 @@ func (s *Service) FetchRemoteModels(ctx context.Context, id string) ([]RemoteMod
 		if err != nil {
 			return nil, err
 		}
-		sdkProvider := memohcopilot.NewProvider(creds.APIKey, nil)
+		sdkProvider := memohcopilot.NewProvider(creds.APIKey, creds.HTTPClient)
 		if result := sdkProvider.Test(ctx); result.Status != sdk.ProviderStatusOK {
 			return nil, fmt.Errorf("github copilot provider test failed: %s", result.Message)
 		}
@@ -313,10 +341,10 @@ func (s *Service) FetchRemoteModels(ctx context.Context, id string) ([]RemoteMod
 		return remoteModels, nil
 	}
 
-	return fetchRemoteModelsFromProvider(ctx, provider)
+	return s.fetchRemoteModelsFromProvider(ctx, provider)
 }
 
-func fetchRemoteModelsFromProvider(ctx context.Context, provider sqlc.Provider) ([]RemoteModel, error) {
+func (s *Service) fetchRemoteModelsFromProvider(ctx context.Context, provider sqlc.Provider) ([]RemoteModel, error) {
 	cfg := providerConfig(provider.Config)
 	baseURL := strings.TrimRight(configString(cfg, "base_url"), "/")
 	apiKey := configString(cfg, "api_key")
@@ -332,7 +360,11 @@ func fetchRemoteModelsFromProvider(ctx context.Context, provider sqlc.Provider) 
 
 	setFetchModelsAuthHeaders(req, models.ClientType(provider.ClientType), apiKey)
 
-	resp, err := models.NewProviderHTTPClient(probeTimeout).Do(req) //nolint:gosec // G704: URL is from operator-configured LLM provider base URL
+	httpClient := s.ResolveProviderHTTPClient(ctx, provider)
+	if httpClient == nil {
+		httpClient = models.NewProviderHTTPClient(probeTimeout)
+	}
+	resp, err := httpClient.Do(req) //nolint:gosec // G704: URL is from operator-configured LLM provider base URL
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}

@@ -50,11 +50,13 @@ func (s *Service) Test(ctx context.Context, id string) (TestResponse, error) {
 		return TestResponse{}, err
 	}
 
+	httpClient := s.proxyHTTPClientForProvider(ctx, provider, probeTimeout)
+
 	if model.Type == string(ModelTypeEmbedding) {
-		return s.testEmbeddingModel(ctx, baseURL, creds.APIKey, model.ModelID, nil)
+		return s.testEmbeddingModel(ctx, baseURL, creds.APIKey, model.ModelID, httpClient)
 	}
 
-	sdkProvider := NewSDKProvider(baseURL, creds.APIKey, creds.CodexAccountID, clientType, probeTimeout, nil)
+	sdkProvider := NewSDKProvider(baseURL, creds.APIKey, creds.CodexAccountID, clientType, probeTimeout, httpClient)
 
 	start := time.Now()
 
@@ -287,4 +289,33 @@ func codexAccountIDFromToken(token string) (string, error) {
 		return "", errors.New("oauth access token missing chatgpt_account_id")
 	}
 	return accountID, nil
+}
+
+// proxyHTTPClientForProvider returns a proxy-aware HTTP client when the
+// provider has opted into the global HTTP proxy and a proxy URL is configured.
+// Returns nil when no override is required so callers fall back to the
+// default transport.
+func (s *Service) proxyHTTPClientForProvider(ctx context.Context, provider sqlc.Provider, timeout time.Duration) *http.Client {
+	if s.appSettings == nil || !providerOptedIntoProxy(provider) {
+		return nil
+	}
+	proxyURL, err := s.appSettings.GetHTTPProxyURL(ctx)
+	if err != nil || strings.TrimSpace(proxyURL) == "" {
+		return nil
+	}
+	return NewProviderHTTPClientWithProxy(timeout, proxyURL)
+}
+
+// providerOptedIntoProxy mirrors providers.ProviderUsesProxy without creating
+// an import cycle (providers already depends on models).
+func providerOptedIntoProxy(provider sqlc.Provider) bool {
+	if len(provider.Metadata) == 0 {
+		return false
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(provider.Metadata, &metadata); err != nil {
+		return false
+	}
+	v, _ := metadata["use_proxy"].(bool)
+	return v
 }

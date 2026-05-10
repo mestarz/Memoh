@@ -721,3 +721,10 @@ CREATE TABLE IF NOT EXISTS user_provider_oauth_tokens (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_provider_oauth_tokens_state ON user_provider_oauth_tokens(state) WHERE state != '';
+
+-- app_settings: global key-value app-wide settings (e.g. network http proxy URL)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

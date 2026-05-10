@@ -6,6 +6,101 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/app-settings/network": {
+            "get": {
+                "description": "Returns the global HTTP proxy URL applied to providers that opted in.",
+                "tags": [
+                    "app-settings"
+                ],
+                "summary": "Get network/proxy settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AppNetworkSettings"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets the global HTTP proxy URL. An empty value clears the proxy.",
+                "tags": [
+                    "app-settings"
+                ],
+                "summary": "Update network/proxy settings",
+                "parameters": [
+                    {
+                        "description": "Network settings payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AppNetworkSettings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AppNetworkSettings"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/app-settings/network/test": {
+            "post": {
+                "description": "Issues an HTTP GET against target_url through the proxy and reports outcome.",
+                "tags": [
+                    "app-settings"
+                ],
+                "summary": "Test the configured (or supplied) HTTP proxy",
+                "parameters": [
+                    {
+                        "description": "Proxy test payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AppNetworkTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AppNetworkTestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Validate user credentials and issue a JWT",
@@ -81,6 +176,38 @@
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/avatars/upload": {
+            "post": {
+                "description": "Upload a JPEG/PNG/GIF/WebP image as an avatar; returns its serving URL.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "avatars"
+                ],
+                "summary": "Upload an avatar image",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Image file (JPEG/PNG/GIF/WebP, max 5 MB)",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.avatarUploadResponse"
                         }
                     }
                 }
@@ -5310,6 +5437,59 @@
                 }
             }
         },
+        "/bots/{bot_id}/tts/render": {
+            "post": {
+                "description": "Synthesize text using the bot's configured TTS model and return raw audio bytes",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "bots"
+                ],
+                "summary": "Render speech for a bot and return audio directly",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Text to synthesize",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.synthesizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Audio data",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bots/{bot_id}/tts/synthesize": {
             "post": {
                 "description": "Stream-synthesize text using the bot's configured TTS model, write to temp file",
@@ -8075,6 +8255,50 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/search-providers/{id}/probe-keys": {
+            "get": {
+                "description": "Query usage stats for all Tavily API keys in a provider's pool. Only supported for Tavily providers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search-providers"
+                ],
+                "summary": "Probe Tavily API key usage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/websearch.TavilyKeyUsage"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -11657,6 +11881,45 @@
                 }
             }
         },
+        "handlers.AppNetworkSettings": {
+            "type": "object",
+            "properties": {
+                "http_proxy_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.AppNetworkTestRequest": {
+            "type": "object",
+            "properties": {
+                "http_proxy_url": {
+                    "type": "string"
+                },
+                "target_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.AppNetworkTestResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "status_code": {
+                    "type": "integer"
+                },
+                "target_url": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.BatchDeleteRequest": {
             "type": "object",
             "properties": {
@@ -12735,6 +12998,14 @@
                     "type": "string"
                 },
                 "summary": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.avatarUploadResponse": {
+            "type": "object",
+            "properties": {
+                "url": {
                     "type": "string"
                 }
             }
@@ -14349,6 +14620,27 @@
                 },
                 "tts_model_id": {
                     "type": "string"
+                }
+            }
+        },
+        "websearch.TavilyKeyUsage": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "limit": {
+                    "description": "nil = unlimited",
+                    "type": "integer"
+                },
+                "masked_key": {
+                    "type": "string"
+                },
+                "usage": {
+                    "type": "integer"
                 }
             }
         }

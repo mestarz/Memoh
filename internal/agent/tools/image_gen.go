@@ -121,7 +121,7 @@ func (p *ImageGenProvider) execGenerateImage(ctx context.Context, session Sessio
 		return nil, fmt.Errorf("failed to load model provider: %w", err)
 	}
 
-	authResolver := providers.NewService(nil, p.queries, "")
+	authResolver := providers.NewService(nil, p.queries, "", nil)
 	creds, err := authResolver.ResolveModelCredentials(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve provider credentials: %w", err)

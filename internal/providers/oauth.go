@@ -58,6 +58,7 @@ const (
 	metadataAccountAvatarURLKey   = "account_avatar_url"
 	metadataAccountProfileURLKey  = "account_profile_url"
 	configOAuthClientSecretKey    = "oauth_client_secret" //nolint:gosec // Metadata key name, not a credential literal.
+	metadataUseProxyKey           = "use_proxy"
 )
 
 type oauthTokenRecord struct {
@@ -85,6 +86,7 @@ type oauthConfig struct {
 	Audience                string
 	UsePKCE                 bool
 	IDTokenAddOrganizations bool
+	UseProxy                bool
 }
 
 type deviceAuthorizationResponse struct {
@@ -127,6 +129,7 @@ func oauthLogAttrs(providerID, userID string, err error) []any {
 
 func (s *Service) oauthConfigForProvider(provider sqlc.Provider) oauthConfig {
 	metadata := providerMetadata(provider.Metadata)
+	useProxy, _ := metadata[metadataUseProxyKey].(bool)
 
 	switch models.ClientType(provider.ClientType) {
 	case models.ClientTypeGitHubCopilot:
@@ -136,6 +139,7 @@ func (s *Service) oauthConfigForProvider(provider sqlc.Provider) oauthConfig {
 			DeviceCodeURL: defaultGitHubDeviceCodeURL,
 			TokenURL:      defaultGitHubTokenURL,
 			Scopes:        memohcopilot.GitHubOAuthScope,
+			UseProxy:      useProxy,
 		}
 		if v := strings.TrimSpace(stringValue(metadata, metadataOAuthDeviceCodeURLKey)); v != "" {
 			result.DeviceCodeURL = v
@@ -156,6 +160,7 @@ func (s *Service) oauthConfigForProvider(provider sqlc.Provider) oauthConfig {
 			Audience:                strings.TrimSpace(stringValue(metadata, metadataOAuthAudienceKey)),
 			UsePKCE:                 true,
 			IDTokenAddOrganizations: true,
+			UseProxy:                useProxy,
 		}
 		if v := strings.TrimSpace(stringValue(metadata, metadataOAuthClientIDKey)); v != "" {
 			result.ClientID = v
@@ -466,7 +471,7 @@ func (s *Service) PollOAuthAuthorization(ctx context.Context, providerID string)
 		}
 	}
 
-	account, err := s.fetchGitHubOAuthAccount(ctx, resp.AccessToken)
+	account, err := s.fetchGitHubOAuthAccount(ctx, resp.AccessToken, cfg.UseProxy)
 	if err != nil {
 		s.logger.Warn("fetch github oauth account failed", oauthLogAttrs(providerID, userID, err)...)
 	}
@@ -923,6 +928,31 @@ func (a oauthAccountMetadata) isZero() bool {
 	return a.Label == "" && a.Login == "" && a.Name == "" && a.Email == "" && a.AvatarURL == "" && a.ProfileURL == ""
 }
 
+// providerUsesProxyByID returns whether the provider with the given ID has
+// opted into proxying. It silently returns false on lookup errors so that
+// callers can fall back to the non-proxied path.
+func (s *Service) providerUsesProxyByID(ctx context.Context, providerID string) bool {
+	providerUUID, err := db.ParseUUID(providerID)
+	if err != nil {
+		return false
+	}
+	provider, err := s.queries.GetProviderByID(ctx, providerUUID)
+	if err != nil {
+		return false
+	}
+	metadata := providerMetadata(provider.Metadata)
+	v, _ := metadata[metadataUseProxyKey].(bool)
+	return v
+}
+
+// ProviderUsesProxy reports whether the given provider record has opted into
+// using the global HTTP proxy.
+func ProviderUsesProxy(provider sqlc.Provider) bool {
+	metadata := providerMetadata(provider.Metadata)
+	v, _ := metadata[metadataUseProxyKey].(bool)
+	return v
+}
+
 func (s *Service) resolveGitHubOAuthAccount(ctx context.Context, providerID, userID string, token *oauthTokenRecord) (*OAuthAccount, error) {
 	account := accountMetadataFromMap(token.Metadata)
 	if status := account.toStatus(); status != nil {
@@ -932,7 +962,8 @@ func (s *Service) resolveGitHubOAuthAccount(ctx context.Context, providerID, use
 		return nil, nil
 	}
 
-	refreshedAccount, err := s.fetchGitHubOAuthAccount(ctx, token.AccessToken)
+	useProxy := s.providerUsesProxyByID(ctx, providerID)
+	refreshedAccount, err := s.fetchGitHubOAuthAccount(ctx, token.AccessToken, useProxy)
 	if err != nil {
 		s.logger.Warn("refresh github oauth account metadata failed", oauthLogAttrs(providerID, userID, err)...)
 		return nil, nil
@@ -946,7 +977,7 @@ func (s *Service) resolveGitHubOAuthAccount(ctx context.Context, providerID, use
 	return refreshedAccount.toStatus(), nil
 }
 
-func (s *Service) fetchGitHubOAuthAccount(ctx context.Context, accessToken string) (oauthAccountMetadata, error) {
+func (s *Service) fetchGitHubOAuthAccount(ctx context.Context, accessToken string, useProxy bool) (oauthAccountMetadata, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, defaultGitHubUserURL, nil)
 	if err != nil {
 		return oauthAccountMetadata{}, fmt.Errorf("create github oauth account request: %w", err)
@@ -955,7 +986,7 @@ func (s *Service) fetchGitHubOAuthAccount(ctx context.Context, accessToken strin
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(accessToken))
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
-	resp, err := s.httpClient.Do(req) //nolint:gosec // Request targets a fixed GitHub API endpoint.
+	resp, err := s.httpClientForProxy(ctx, useProxy).Do(req) //nolint:gosec // Request targets a fixed GitHub API endpoint.
 	if err != nil {
 		return oauthAccountMetadata{}, fmt.Errorf("execute github oauth account request: %w", err)
 	}
@@ -988,7 +1019,7 @@ func (s *Service) fetchGitHubOAuthAccount(ctx context.Context, accessToken strin
 		ProfileURL: strings.TrimSpace(profile.HTMLURL),
 	}
 	if account.Email == "" {
-		email, err := s.fetchGitHubPrimaryEmail(ctx, accessToken)
+		email, err := s.fetchGitHubPrimaryEmail(ctx, accessToken, useProxy)
 		if err != nil {
 			s.logger.Warn("fetch github oauth primary email failed", slog.Any("error", err))
 		} else {
@@ -1002,7 +1033,7 @@ func (s *Service) fetchGitHubOAuthAccount(ctx context.Context, accessToken strin
 	return account, nil
 }
 
-func (s *Service) fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
+func (s *Service) fetchGitHubPrimaryEmail(ctx context.Context, accessToken string, useProxy bool) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, defaultGitHubUserEmailsURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("create github oauth emails request: %w", err)
@@ -1011,7 +1042,7 @@ func (s *Service) fetchGitHubPrimaryEmail(ctx context.Context, accessToken strin
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(accessToken))
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
-	resp, err := s.httpClient.Do(req) //nolint:gosec // Request targets a fixed GitHub API endpoint.
+	resp, err := s.httpClientForProxy(ctx, useProxy).Do(req) //nolint:gosec // Request targets a fixed GitHub API endpoint.
 	if err != nil {
 		return "", fmt.Errorf("execute github oauth emails request: %w", err)
 	}
@@ -1075,7 +1106,7 @@ func (s *Service) requestDeviceAuthorization(ctx context.Context, cfg oauthConfi
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := s.httpClient.Do(req) //nolint:gosec // URL is validated by validateOAuthTokenURL before request execution.
+	resp, err := s.httpClientForProxy(ctx, cfg.UseProxy).Do(req) //nolint:gosec // URL is validated by validateOAuthTokenURL before request execution.
 	if err != nil {
 		return nil, fmt.Errorf("execute oauth device request: %w", err)
 	}
@@ -1123,7 +1154,7 @@ func (s *Service) exchangeDeviceCode(ctx context.Context, cfg oauthConfig, devic
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := s.httpClient.Do(req) //nolint:gosec // URL is validated by validateOAuthTokenURL before request execution.
+	resp, err := s.httpClientForProxy(ctx, cfg.UseProxy).Do(req) //nolint:gosec // URL is validated by validateOAuthTokenURL before request execution.
 	if err != nil {
 		return nil, fmt.Errorf("execute oauth device token request: %w", err)
 	}
@@ -1189,7 +1220,7 @@ func (s *Service) postTokenRequest(ctx context.Context, cfg oauthConfig, body ur
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := s.httpClient.Do(req) //nolint:gosec // URL is validated by validateOAuthTokenURL before request execution.
+	resp, err := s.httpClientForProxy(ctx, cfg.UseProxy).Do(req) //nolint:gosec // URL is validated by validateOAuthTokenURL before request execution.
 	if err != nil {
 		return nil, fmt.Errorf("execute oauth request: %w", err)
 	}

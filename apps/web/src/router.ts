@@ -114,6 +114,14 @@ const routes = [
         },
       },
       {
+        name: 'network-proxy',
+        path: 'network-proxy',
+        component: () => import('@/pages/network-proxy/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.networkProxy'),
+        },
+      },
+      {
         name: 'usage',
         path: 'usage',
         component: () => import('@/pages/usage/index.vue'),

@@ -79,6 +79,8 @@ case "$ACTION" in
   restart)
     setup_proxy
     setup_host_ip
+    log "Running database migrations..."
+    docker compose run --rm migrate
     log "Recreating server and web with latest images..."
     docker compose up -d --force-recreate --no-deps server web
     log "Services restarted. Server: http://localhost:8080  Web: http://localhost:8082"

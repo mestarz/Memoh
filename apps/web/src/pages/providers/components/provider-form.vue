@@ -107,6 +107,31 @@
         </FormItem>
       </FormField>
 
+      <FormField
+        v-slot="{ value, handleChange }"
+        name="use_proxy"
+      >
+        <FormItem class="md:col-span-2">
+          <div class="flex items-start justify-between gap-4">
+            <div class="space-y-1">
+              <FormLabel>{{ $t('provider.useProxy') }}</FormLabel>
+              <FormDescription>
+                {{ proxyUrl
+                  ? $t('provider.useProxyDescription')
+                  : $t('provider.useProxyDisabled') }}
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Switch
+                :model-value="!!value"
+                :disabled="!proxyUrl"
+                @update:model-value="handleChange"
+              />
+            </FormControl>
+          </div>
+        </FormItem>
+      </FormField>
+
       <section
         v-if="['openai-codex', 'github-copilot'].includes(form.values.client_type)"
         class="md:col-span-2 rounded-lg border p-4 space-y-3 text-xs"
@@ -334,6 +359,7 @@ import {
   SelectTrigger,
   SelectValue,
   Spinner,
+  Switch,
 } from '@memohai/ui'
 import { Copy, KeyRound, RefreshCw, Trash2 } from 'lucide-vue-next'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
@@ -342,11 +368,11 @@ import LoadingButton from '@/components/loading-button/index.vue'
 import SearchableSelectPopover from '@/components/searchable-select-popover/index.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { LLM_CLIENT_TYPE_LIST, CLIENT_TYPE_META } from '@/constants/client-types'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import z from 'zod'
 import { useForm } from 'vee-validate'
-import { postProvidersByIdTest } from '@memohai/sdk'
+import { postProvidersByIdTest, getAppSettingsNetwork } from '@memohai/sdk'
 import type { ProvidersGetResponse, ProvidersTestResponse } from '@memohai/sdk'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -427,6 +453,17 @@ const revokeLoading = ref(false)
 const pollTimer = ref<number | null>(null)
 const apiBase = import.meta.env.VITE_API_URL?.trim() || '/api'
 
+const proxyUrl = ref('')
+
+onMounted(async () => {
+  try {
+    const { data } = await getAppSettingsNetwork({ throwOnError: true })
+    proxyUrl.value = (data?.http_proxy_url ?? '').trim()
+  } catch {
+    proxyUrl.value = ''
+  }
+})
+
 async function runTest() {
   if (!props.provider?.id) return
   testLoading.value = true
@@ -466,6 +503,7 @@ const providerSchema = toTypedSchema(z.object({
   api_key: z.string().optional(),
   client_type: z.string().min(1),
   prompt_cache_ttl: z.enum(['5m', '1h', 'off']).optional(),
+  use_proxy: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   const existingSecret = getStoredSecret(
     props.provider?.config as Record<string, unknown> | undefined,
@@ -493,6 +531,7 @@ const form = useForm({
 watch(() => props.provider, (newVal) => {
   if (newVal) {
     const cfg = newVal.config as Record<string, unknown> | undefined
+    const meta = newVal.metadata as Record<string, unknown> | undefined
     form.setValues({
       enable: newVal.enable ?? true,
       name: newVal.name,
@@ -500,6 +539,7 @@ watch(() => props.provider, (newVal) => {
       api_key: '',
       client_type: newVal.client_type || 'openai-completions',
       prompt_cache_ttl: normalizeCacheTtl(cfg?.prompt_cache_ttl as string | undefined),
+      use_proxy: meta?.use_proxy === true,
     })
   }
 }, { immediate: true })
@@ -527,6 +567,7 @@ watch(() => [props.provider?.id, form.values.client_type] as const, async ([id, 
 const hasChanges = computed(() => {
   const raw = props.provider
   const cfg = raw?.config as Record<string, unknown> | undefined
+  const meta = raw?.metadata as Record<string, unknown> | undefined
   const baseChanged = JSON.stringify({
     enable: form.values.enable,
     name: form.values.name,
@@ -543,7 +584,8 @@ const hasChanges = computed(() => {
   const cacheChanged = supportsPromptCache(form.values.client_type)
     && normalizeCacheTtl(form.values.prompt_cache_ttl)
       !== normalizeCacheTtl(cfg?.prompt_cache_ttl as string | undefined)
-  return baseChanged || apiKeyChanged || cacheChanged
+  const useProxyChanged = Boolean(form.values.use_proxy) !== (meta?.use_proxy === true)
+  return baseChanged || apiKeyChanged || cacheChanged || useProxyChanged
 })
 
 const editProvider = form.handleSubmit(async (value) => {
@@ -565,13 +607,18 @@ const editProvider = form.handleSubmit(async (value) => {
   if (value.client_type === 'github-copilot') {
     delete metadata.oauth_client_id
   }
+  if (value.use_proxy) {
+    metadata.use_proxy = true
+  } else {
+    delete metadata.use_proxy
+  }
   const payload: Record<string, unknown> = {
     enable: value.enable,
     name: value.name,
     config,
     client_type: value.client_type,
   }
-  if (Object.keys(metadata).length > 0 || value.client_type === 'github-copilot') {
+  if (Object.keys(metadata).length > 0 || value.client_type === 'github-copilot' || value.use_proxy !== undefined) {
     payload.metadata = metadata
   }
   emit('submit', payload)

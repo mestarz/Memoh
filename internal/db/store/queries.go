@@ -91,6 +91,7 @@ type Queries interface {
 	GetAccountByIdentity(ctx context.Context, identity pgtype.Text) (dbsqlc.User, error)
 	GetAccountByUserID(ctx context.Context, userID pgtype.UUID) (dbsqlc.User, error)
 	GetActiveSessionForRoute(ctx context.Context, routeID pgtype.UUID) (dbsqlc.BotSession, error)
+	GetAppSetting(ctx context.Context, key string) (dbsqlc.AppSetting, error)
 	GetBindCode(ctx context.Context, token string) (dbsqlc.ChannelIdentityBindCode, error)
 	GetBindCodeForUpdate(ctx context.Context, token string) (dbsqlc.ChannelIdentityBindCode, error)
 	GetBotACLDefaultEffect(ctx context.Context, id pgtype.UUID) (string, error)
@@ -285,6 +286,7 @@ type Queries interface {
 	UpdateToolApprovalPromptMessage(ctx context.Context, arg dbsqlc.UpdateToolApprovalPromptMessageParams) (dbsqlc.ToolApprovalRequest, error)
 	UpdateUserProviderOAuthState(ctx context.Context, arg dbsqlc.UpdateUserProviderOAuthStateParams) error
 	UpsertAccountByUsername(ctx context.Context, arg dbsqlc.UpsertAccountByUsernameParams) (dbsqlc.User, error)
+	UpsertAppSetting(ctx context.Context, arg dbsqlc.UpsertAppSettingParams) (dbsqlc.AppSetting, error)
 	UpsertBotChannelConfig(ctx context.Context, arg dbsqlc.UpsertBotChannelConfigParams) (dbsqlc.BotChannelConfig, error)
 	UpsertBotSettings(ctx context.Context, arg dbsqlc.UpsertBotSettingsParams) (dbsqlc.UpsertBotSettingsRow, error)
 	UpsertBotStorageBinding(ctx context.Context, arg dbsqlc.UpsertBotStorageBindingParams) (dbsqlc.BotStorageBinding, error)

@@ -79,7 +79,8 @@
     "platform": "Platform",
     "usage": "Usage",
     "supermarket": "Supermarket",
-    "about": "About"
+    "about": "About",
+    "networkProxy": "Network Proxy"
   },
   "breadcrumb": {
     "main": "Home"
@@ -491,7 +492,10 @@
         "missing": "Not authorized yet.",
         "notConfigured": "This provider is not configured for OAuth."
       }
-    }
+    },
+    "useProxy": "Use Proxy",
+    "useProxyDescription": "Route this provider's outbound traffic (OAuth, model calls, probes) through the global proxy configured in Network Proxy settings.",
+    "useProxyDisabled": "Configure a proxy URL in Network Proxy settings to enable this option."
   },
   "webSearch": {
     "title": "Web Search",
@@ -1751,5 +1755,23 @@
     "skillInstallTitle": "Install Skill",
     "loadError": "Failed to load from Supermarket",
     "submit": "Submit"
+  },
+  "networkProxy": {
+    "title": "Network Proxy",
+    "description": "Configure a global HTTP proxy. Providers with the proxy switch enabled route OAuth, model calls, probes, and other outbound traffic through it.",
+    "urlLabel": "Proxy URL",
+    "urlPlaceholder": "http://127.0.0.1:7890",
+    "urlHint": "Supported schemes: http, https, socks5, socks5h. Leave empty to disable.",
+    "errorScheme": "Scheme must be http, https, socks5 or socks5h.",
+    "errorHost": "Proxy URL must include a host.",
+    "errorInvalid": "Invalid proxy URL.",
+    "saveSuccess": "Network settings saved.",
+    "saveFailed": "Failed to save network settings.",
+    "clear": "Clear",
+    "test": "Test",
+    "testing": "Testing…",
+    "testSuccess": "Proxy reachable ({status}, {latency} ms)",
+    "testFailed": "Proxy test failed: {error}",
+    "testTarget": "Test target"
   }
 }

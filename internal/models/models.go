@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/appsettings"
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/postgres/sqlc"
@@ -25,15 +26,17 @@ var (
 
 // Service provides CRUD operations for models.
 type Service struct {
-	queries dbstore.Queries
-	logger  *slog.Logger
+	queries     dbstore.Queries
+	logger      *slog.Logger
+	appSettings *appsettings.Service
 }
 
 // NewService creates a new models service.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries dbstore.Queries, appSettings *appsettings.Service) *Service {
 	return &Service{
-		queries: queries,
-		logger:  log.With(slog.String("service", "models")),
+		queries:     queries,
+		logger:      log.With(slog.String("service", "models")),
+		appSettings: appSettings,
 	}
 }
 

@@ -106,7 +106,7 @@ func (r *Resolver) generateTitle(ctx context.Context, userID string, model model
 		"Return ONLY the title text, nothing else.\n\n" +
 		"User: " + userSnippet
 
-	authResolver := providers.NewService(nil, r.queries, "")
+	authResolver := providers.NewService(nil, r.queries, "", r.appSettings)
 	authCtx := oauthctx.WithUserID(ctx, userID)
 	creds, err := authResolver.ResolveModelCredentials(authCtx, provider)
 	if err != nil {
@@ -120,6 +120,7 @@ func (r *Resolver) generateTitle(ctx context.Context, userID string, model model
 		APIKey:         creds.APIKey,
 		CodexAccountID: creds.CodexAccountID,
 		BaseURL:        providers.ProviderConfigString(provider, "base_url"),
+		HTTPClient:     creds.HTTPClient,
 	}
 	sdkModel := models.NewSDKChatModel(modelCfg)
 
