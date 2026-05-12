@@ -83,6 +83,16 @@ port = 8082
 ## For NAT'd / firewalled environments, fix the UDP port range so it can be
 ## opened in the firewall, and optionally enable an ICE-TCP fallback for
 ## clients that cannot send UDP at all.
+[display]
+## H.264 encoder backend for the desktop video pipeline. "auto" probes
+## vah264enc → nvh264enc → x264enc and picks the first one available.
+## Use "vaapi" to force Intel/AMD iGPU encoding (requires gst-plugin-va
+## and a working VA-API driver, e.g. libva-mesa-driver / intel-media-driver).
+## Use "nvenc" to force NVIDIA NVENC (requires gstreamer-plugins-bad with
+## nvcodec). Use "x264" to force the CPU encoder. Unknown / missing
+## hardware encoders fall back to x264enc instead of failing.
+# encoder = "auto"
+
 [display.webrtc]
 # udp_port_min = 50000
 # udp_port_max = 50100

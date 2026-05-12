@@ -38,10 +38,12 @@ const (
 	rtcUDPPortMaxEnv     = "MEMOH_DISPLAY_WEBRTC_UDP_PORT_MAX"
 	rtcNATIPsEnv         = "MEMOH_DISPLAY_WEBRTC_NAT_IPS"
 	forceVP8Env          = "MEMOH_DISPLAY_FORCE_VP8"
+	encoderEnv           = "MEMOH_DISPLAY_H264_ENCODER"
 	videoPayloadTypeH264 = 102
 	videoPayloadTypeVP8  = 96
 	videoClockRate       = 90000
-	videoFrameRate       = 15
+	videoFrameRate       = 30
+	videoBitrateKbps     = 4000
 	h264FmtpLine         = "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"
 	displayProbePeriod   = 5 * time.Second
 	socketProbeTimeout   = 300 * time.Millisecond
@@ -50,6 +52,15 @@ const (
 	screenshotQuality    = 82
 	screenshotMaxBytes   = 512 * 1024
 	screenshotMIME       = "image/jpeg"
+
+	// H.264 encoder selection. "auto" probes vah264enc → nvh264enc → x264enc
+	// in that order. The named values force a specific encoder; if it is not
+	// available the pipeline falls back to x264enc rather than failing the
+	// session.
+	H264EncoderAuto  = "auto"
+	H264EncoderVAAPI = "vaapi"
+	H264EncoderNVENC = "nvenc"
+	H264EncoderX264  = "x264"
 )
 
 type screenshotJPEGCandidate struct {
@@ -153,6 +164,13 @@ type Options struct {
 	// STUNServers are added to webrtc.Configuration.ICEServers so the peer
 	// can gather server-reflexive candidates. Optional.
 	STUNServers []string
+
+	// H264Encoder selects the GStreamer H.264 encoder. Valid values:
+	// "auto" (default; probes vah264enc → nvh264enc → x264enc),
+	// "vaapi" (force VA-API), "nvenc" (force NVIDIA NVENC),
+	// "x264" (force CPU x264). Falls back to x264enc if the requested
+	// encoder is not available on the host.
+	H264Encoder string
 }
 
 type Service struct {
@@ -163,6 +181,9 @@ type Service struct {
 
 	tcpMuxOnce sync.Once
 	tcpMux     iceTCPMuxHandle
+
+	encoderOnce     sync.Once
+	resolvedEncoder string
 
 	mu       sync.Mutex
 	sessions map[string]*session
@@ -535,7 +556,7 @@ func (s *session) start(ctx context.Context) error {
 
 	proxyPort := proxy.Addr().(*net.TCPAddr).Port
 	rtpPort := udp.LocalAddr().(*net.UDPAddr).Port
-	args := gstreamerArgs(s.codec, proxyPort, rtpPort)
+	args := gstreamerArgs(s.codec, s.service.resolveH264Encoder(ctx), proxyPort, rtpPort)
 	cmd := exec.CommandContext(runCtx, s.gstLaunch, args...) //nolint:gosec // executable is resolved from PATH or explicit admin env.
 	cmd.Stdout = processLogWriter{logger: s.service.logger, botID: s.botID}
 	cmd.Stderr = processLogWriter{logger: s.service.logger, botID: s.botID}
@@ -1321,7 +1342,7 @@ func forceVP8FromEnv() bool {
 	}
 }
 
-func gstreamerArgs(codec string, rfbPort, rtpPort int) []string {
+func gstreamerArgs(codec, h264Encoder string, rfbPort, rtpPort int) []string {
 	base := []string{
 		"-q",
 		"rfbsrc", "host=127.0.0.1", fmt.Sprintf("port=%d", rfbPort), "shared=true", "incremental=true", "use-copyrect=true", "do-timestamp=true",
@@ -1332,24 +1353,149 @@ func gstreamerArgs(codec string, rfbPort, rtpPort int) []string {
 	}
 	switch codec {
 	case CodecH264:
-		return append(base,
-			"!", "x264enc", "tune=zerolatency", "speed-preset=ultrafast",
-			"bframes=0", "key-int-max=30", "byte-stream=true",
-			"!", "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au",
-			"!", "h264parse", "config-interval=-1",
-			"!", "rtph264pay", "aggregate-mode=zero-latency", "config-interval=-1",
-			fmt.Sprintf("pt=%d", videoPayloadTypeH264),
-			"!", "udpsink", "host=127.0.0.1", fmt.Sprintf("port=%d", rtpPort), "sync=false", "async=false",
-		)
+		return append(base, h264EncoderTail(h264Encoder, rtpPort)...)
 	case CodecVP8:
 		fallthrough
 	default:
 		return append(base,
 			"!", "vp8enc", "deadline=1", "cpu-used=8", "keyframe-max-dist=30",
+			"target-bitrate="+strconv.Itoa(videoBitrateKbps*1000), "end-usage=cbr",
 			"!", "rtpvp8pay", fmt.Sprintf("pt=%d", videoPayloadTypeVP8),
 			"!", "udpsink", "host=127.0.0.1", fmt.Sprintf("port=%d", rtpPort), "sync=false", "async=false",
 		)
 	}
+}
+
+// h264EncoderTail returns the GStreamer pipeline tail (encoder → payloader →
+// udpsink) for the resolved H.264 encoder. Unknown encoders fall through to
+// the CPU x264 path so the pipeline always has a valid tail.
+func h264EncoderTail(encoder string, rtpPort int) []string {
+	rtp := []string{
+		"!", "h264parse", "config-interval=-1",
+		"!", "rtph264pay", "aggregate-mode=zero-latency", "config-interval=-1",
+		fmt.Sprintf("pt=%d", videoPayloadTypeH264), "mtu=1200",
+		"!", "udpsink", "host=127.0.0.1", fmt.Sprintf("port=%d", rtpPort), "sync=false", "async=false",
+	}
+	switch encoder {
+	case H264EncoderVAAPI:
+		// VA-API on AMD/Intel iGPU. NV12 input via vapostproc, CBR rate
+		// control with ultra-low-latency target so the encoder doesn't
+		// buffer frames waiting for B-frames or lookahead. We let the
+		// encoder pick its natural Main profile output: although the SDP
+		// fmtp advertises profile-level-id=42e01f (Constrained Baseline),
+		// Chrome/Edge tolerate Main streams in practice. An earlier attempt
+		// to force constrained-baseline (commit 5a4a397) caused decoders to
+		// render black frames.
+		head := []string{
+			"!", "vapostproc",
+			"!", "video/x-raw(memory:VAMemory),format=NV12",
+			"!", "vah264enc",
+			"rate-control=cbr",
+			fmt.Sprintf("bitrate=%d", videoBitrateKbps),
+			"key-int-max=60",
+			"target-usage=7",
+		}
+		return append(head, rtp...)
+	case H264EncoderNVENC:
+		// NVIDIA NVENC. CUDA upload, then nvh264enc with ultra-low-latency
+		// preset and CBR. preset=p1 = lowest quality / lowest latency.
+		// bframes=0 keeps the decoder pipeline shallow. We let nvh264enc
+		// emit its natural Main profile (see VAAPI branch comment).
+		head := []string{
+			"!", "cudaupload",
+			"!", "cudaconvert",
+			"!", "video/x-raw(memory:CUDAMemory),format=NV12",
+			"!", "nvh264enc",
+			"preset=p1",
+			"tune=ultra-low-latency",
+			"rc-mode=cbr",
+			fmt.Sprintf("bitrate=%d", videoBitrateKbps),
+			"gop-size=60",
+			"bframes=0",
+			"zerolatency=true",
+			"repeat-sequence-header=true",
+		}
+		return append(head, rtp...)
+	case H264EncoderX264:
+		fallthrough
+	default:
+		head := []string{
+			"!", "x264enc", "tune=zerolatency", "speed-preset=superfast",
+			"bframes=0", "key-int-max=60", "byte-stream=true",
+			"pass=cbr", fmt.Sprintf("bitrate=%d", videoBitrateKbps),
+			"!", "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au",
+		}
+		return append(head, rtp...)
+	}
+}
+
+// resolveH264Encoder picks the concrete encoder backend for this Service.
+// The result is cached after the first call so that gst-inspect probes only
+// run once per Service lifetime. The returned value is always one of the
+// concrete H264Encoder* constants (never "auto"). The ctx is only used to
+// bound the probe subprocess; once cached the result is returned without
+// touching ctx.
+func (s *Service) resolveH264Encoder(ctx context.Context) string {
+	s.encoderOnce.Do(func() {
+		pref := strings.ToLower(strings.TrimSpace(s.opts.H264Encoder))
+		if envOverride := strings.ToLower(strings.TrimSpace(os.Getenv(encoderEnv))); envOverride != "" {
+			pref = envOverride
+		}
+		if pref == "" {
+			pref = H264EncoderAuto
+		}
+		switch pref {
+		case H264EncoderVAAPI:
+			if gstElementAvailable(ctx, "vah264enc") {
+				s.resolvedEncoder = H264EncoderVAAPI
+			} else {
+				s.logger.Warn("display: vah264enc requested but not available, falling back to x264enc")
+				s.resolvedEncoder = H264EncoderX264
+			}
+		case H264EncoderNVENC:
+			if gstElementAvailable(ctx, "nvh264enc") {
+				s.resolvedEncoder = H264EncoderNVENC
+			} else {
+				s.logger.Warn("display: nvh264enc requested but not available, falling back to x264enc")
+				s.resolvedEncoder = H264EncoderX264
+			}
+		case H264EncoderX264:
+			s.resolvedEncoder = H264EncoderX264
+		case H264EncoderAuto:
+			fallthrough
+		default:
+			switch {
+			case gstElementAvailable(ctx, "vah264enc"):
+				s.resolvedEncoder = H264EncoderVAAPI
+			case gstElementAvailable(ctx, "nvh264enc"):
+				s.resolvedEncoder = H264EncoderNVENC
+			default:
+				s.resolvedEncoder = H264EncoderX264
+			}
+		}
+		s.logger.Info("display H264 encoder selected",
+			slog.String("preference", pref),
+			slog.String("resolved", s.resolvedEncoder),
+		)
+	})
+	return s.resolvedEncoder
+}
+
+// gstElementAvailable returns true when `gst-inspect-1.0 <name>` exits 0,
+// meaning the named element is registered in the host's GStreamer plugin
+// search path. The element name is always a hardcoded constant from the
+// encoder selector, never user input.
+func gstElementAvailable(ctx context.Context, name string) bool {
+	bin, err := exec.LookPath("gst-inspect-1.0")
+	if err != nil {
+		return false
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(probeCtx, bin, name) //nolint:gosec // name is a hardcoded GStreamer element identifier from h264EncoderTail constants.
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	return cmd.Run() == nil
 }
 
 func gstreamerScreenshotArgs(rfbPort int, outputPath string) []string {

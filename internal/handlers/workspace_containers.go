@@ -219,6 +219,7 @@ func displayOptionsFromConfig(cfg config.DisplayConfig) displaypkg.Options {
 		AutoNATIPs:          cfg.WebRTC.AutoNATEnabled(),
 		AutoNATIncludeCIDRs: append([]string(nil), cfg.WebRTC.AutoNATIncludeCIDRs...),
 		STUNServers:         append([]string(nil), cfg.WebRTC.STUNServers...),
+		H264Encoder:         strings.TrimSpace(cfg.Encoder),
 	}
 	for _, ip := range cfg.WebRTC.NATIPs {
 		ip = strings.TrimSpace(ip)

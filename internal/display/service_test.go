@@ -133,7 +133,7 @@ func TestLocalHostIPsExcludesLoopback(t *testing.T) {
 }
 
 func TestGStreamerArgsH264UsesX264AndH264Pay(t *testing.T) {
-	args := gstreamerArgs(CodecH264, 5901, 5004)
+	args := gstreamerArgs(CodecH264, H264EncoderX264, 5901, 5004)
 	if !containsString(args, "incremental=true") {
 		t.Fatal("live rfbsrc must request incremental updates")
 	}
@@ -151,8 +151,31 @@ func TestGStreamerArgsH264UsesX264AndH264Pay(t *testing.T) {
 	}
 }
 
+func TestGStreamerArgsH264VAAPIUsesVAEncoder(t *testing.T) {
+	args := gstreamerArgs(CodecH264, H264EncoderVAAPI, 5901, 5004)
+	if !containsString(args, "vah264enc") {
+		t.Fatal("VAAPI pipeline must use vah264enc")
+	}
+	if !containsString(args, "vapostproc") {
+		t.Fatal("VAAPI pipeline must use vapostproc to upload frames into VAMemory")
+	}
+	if !containsString(args, "rtph264pay") {
+		t.Fatal("VAAPI H264 pipeline must use rtph264pay")
+	}
+}
+
+func TestGStreamerArgsH264NVENCUsesNVEncoder(t *testing.T) {
+	args := gstreamerArgs(CodecH264, H264EncoderNVENC, 5901, 5004)
+	if !containsString(args, "nvh264enc") {
+		t.Fatal("NVENC pipeline must use nvh264enc")
+	}
+	if !containsString(args, "cudaupload") {
+		t.Fatal("NVENC pipeline must upload frames into CUDA memory")
+	}
+}
+
 func TestGStreamerArgsVP8FallbackUsesVP8Pay(t *testing.T) {
-	args := gstreamerArgs(CodecVP8, 5901, 5004)
+	args := gstreamerArgs(CodecVP8, H264EncoderX264, 5901, 5004)
 	if !containsString(args, "vp8enc") {
 		t.Fatal("VP8 pipeline must use vp8enc")
 	}

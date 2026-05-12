@@ -56,9 +56,19 @@ done
 if command -v gst-launch-1.0 >/dev/null 2>&1; then
   pass "gst-launch-1.0   ($(gst-launch-1.0 --version 2>&1 | head -1))"
   if gst-inspect-1.0 x264enc >/dev/null 2>&1; then
-    pass "gstreamer x264enc element present"
+    pass "gstreamer x264enc element present (CPU H264 fallback)"
   else
     miss "gstreamer x264enc missing — H264 streaming will fail (Arch: pacman -S gst-plugins-ugly; Debian/Ubuntu: apt install gstreamer1.0-plugins-ugly)"
+  fi
+  if gst-inspect-1.0 vah264enc >/dev/null 2>&1; then
+    pass "gstreamer vah264enc element present (VA-API hardware encode)"
+  else
+    note "gstreamer vah264enc missing — VA-API hardware H264 encoding unavailable, will fall back to x264 (Arch: pacman -S gst-plugin-va libva-utils; Debian/Ubuntu: apt install gstreamer1.0-vaapi va-driver-all)"
+  fi
+  if gst-inspect-1.0 nvh264enc >/dev/null 2>&1; then
+    pass "gstreamer nvh264enc element present (NVIDIA NVENC hardware encode)"
+  else
+    note "gstreamer nvh264enc missing — NVENC hardware H264 encoding unavailable (requires NVIDIA GPU + gst-plugins-bad with nvcodec)"
   fi
 else
   miss "gst-launch-1.0 not found — remote-desktop WebRTC streaming will fail (apt install gstreamer1.0-tools gstreamer1.0-plugins-{base,good,bad,ugly} / pacman -S gst-plugins-{base,good,bad,ugly})"

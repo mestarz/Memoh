@@ -56,7 +56,20 @@ type Config struct {
 
 // DisplayConfig configures the bot workspace remote desktop pipeline.
 type DisplayConfig struct {
-	WebRTC DisplayWebRTCConfig `toml:"webrtc"`
+	// Encoder selects the H.264 encoder backend used by the GStreamer
+	// pipeline that streams the bot's desktop. Values:
+	//   - ""      (default, treated as "auto")
+	//   - "auto"  probe vah264enc → nvh264enc → x264enc, pick the first
+	//   - "vaapi" force VA-API (Intel/AMD iGPU); falls back to x264enc if
+	//             vah264enc is not registered with GStreamer
+	//   - "nvenc" force NVIDIA NVENC; falls back to x264enc if nvh264enc
+	//             is not registered with GStreamer
+	//   - "x264"  force the CPU encoder
+	// Hardware encoders dramatically reduce latency and CPU usage on LAN
+	// streams. VP8 always uses the software vp8enc encoder because there
+	// is no broadly available hardware path for it.
+	Encoder string              `toml:"encoder"`
+	WebRTC  DisplayWebRTCConfig `toml:"webrtc"`
 }
 
 // DisplayWebRTCConfig tunes the WebRTC transport that streams the bot's
