@@ -104,10 +104,11 @@ Thumbs.db
 tmp/
 
 # compiled files
-/memoh
-/agent
-/bridge
 /bin/
+/agent
+/memoh
+/memoh-server
+/bridge
 *.bak
 
 docs/docs/.vitepress/cache
@@ -123,3 +124,7 @@ data
 _main-ref/
 .toolkit/
 /scripts/vendor
+# Bot data backups produced by scripts/backup-bot-data.sh (contain real user data)
+/backups/
+# Local systemd --user deployment unit files (host-specific paths)
+/systemd/
