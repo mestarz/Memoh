@@ -68,7 +68,7 @@ cp conf/app.docker.toml config.toml
 - 🔐 **访问控制**：基于优先级的 ACL，有预设、允许/拒绝、可按渠道身份、渠道类型或会话作用域配置。
 - 🧪 **多模型**：OpenAI 兼容、Anthropic、Google、OpenAI Codex、GitHub Copilot、Edge TTS 等。可按机器人选模型、提供方 OAuth、自动拉模型列表。
 - 🎙️ **语音与转写**：机器人可经 10+ 家 TTS（Edge、OpenAI、ElevenLabs、Deepgram、Azure、Google、MiniMax、火山、阿里、OpenRouter 等）发声；从 Telegram、Discord 等收到语音会可用 STT（OpenAI / OpenRouter）自动转写，也可用内置工具按需转任意音频。
-- 🚀 **一键部署**：Docker Compose，含自动迁移、containerd 与 CNI 网络。
+- 🚀 **一键部署**：Docker Compose，含自动迁移。
 
 ## 记忆系统
 
