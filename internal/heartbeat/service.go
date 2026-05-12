@@ -16,8 +16,7 @@ import (
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/boot"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 const heartbeatTokenTTL = 10 * time.Minute
@@ -32,7 +31,7 @@ type SessionCreator interface {
 }
 
 type Service struct {
-	queries        dbstore.Queries
+	queries        *dbsqlc.Queries
 	cron           *cron.Cron
 	triggerer      Triggerer
 	sessionCreator SessionCreator
@@ -42,7 +41,7 @@ type Service struct {
 	jobs           map[string]cron.EntryID
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, triggerer Triggerer, sessionCreator SessionCreator, runtimeConfig *boot.RuntimeConfig) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, triggerer Triggerer, sessionCreator SessionCreator, runtimeConfig *boot.RuntimeConfig) *Service {
 	c := cron.New()
 	service := &Service{
 		queries:        queries,
@@ -132,14 +131,14 @@ func (s *Service) runHeartbeat(ctx context.Context, cfg Config) {
 	}
 
 	var lastHeartbeatAt string
-	if prevLogs, listErr := s.queries.ListHeartbeatLogsByBot(ctx, sqlc.ListHeartbeatLogsByBotParams{
+	if prevLogs, listErr := s.queries.ListHeartbeatLogsByBot(ctx, dbsqlc.ListHeartbeatLogsByBotParams{
 		BotID: pgBotID,
 		Limit: 1,
 	}); listErr == nil && len(prevLogs) > 0 {
 		lastHeartbeatAt = prevLogs[0].StartedAt.Time.UTC().Format("2006-01-02T15:04:05Z")
 	}
 
-	logRow, err := s.queries.CreateHeartbeatLog(ctx, sqlc.CreateHeartbeatLogParams{
+	logRow, err := s.queries.CreateHeartbeatLog(ctx, dbsqlc.CreateHeartbeatLogParams{
 		BotID:     pgBotID,
 		SessionID: pgSessionID,
 	})
@@ -174,7 +173,7 @@ func (s *Service) runHeartbeat(ctx context.Context, cfg Config) {
 }
 
 func (s *Service) completeLog(ctx context.Context, logID pgtype.UUID, status, resultText, errorMessage string, usageBytes []byte, modelID pgtype.UUID) {
-	_, err := s.queries.CompleteHeartbeatLog(ctx, sqlc.CompleteHeartbeatLogParams{
+	_, err := s.queries.CompleteHeartbeatLog(ctx, dbsqlc.CompleteHeartbeatLogParams{
 		ID:           logID,
 		Status:       status,
 		ResultText:   resultText,
@@ -204,7 +203,7 @@ func (s *Service) ListLogs(ctx context.Context, botID string, limit, offset int)
 		return nil, 0, err
 	}
 
-	rows, err := s.queries.ListHeartbeatLogsByBot(ctx, sqlc.ListHeartbeatLogsByBotParams{
+	rows, err := s.queries.ListHeartbeatLogsByBot(ctx, dbsqlc.ListHeartbeatLogsByBotParams{
 		BotID:  pgBotID,
 		Limit:  int32(limit),  //nolint:gosec // capped to 100 above
 		Offset: int32(offset), //nolint:gosec // validated above
@@ -269,7 +268,7 @@ func (s *Service) removeJob(botID string) {
 	}
 }
 
-func toLog(row sqlc.ListHeartbeatLogsByBotRow) Log {
+func toLog(row dbsqlc.ListHeartbeatLogsByBotRow) Log {
 	l := Log{
 		ID:           row.ID.String(),
 		BotID:        row.BotID.String(),

@@ -21,7 +21,7 @@ import (
 
 	memohcopilot "github.com/memohai/memoh/internal/copilot"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/oauthctx"
 )
@@ -127,7 +127,7 @@ func oauthLogAttrs(providerID, userID string, err error) []any {
 	return attrs
 }
 
-func (s *Service) oauthConfigForProvider(provider sqlc.Provider) oauthConfig {
+func (s *Service) oauthConfigForProvider(provider dbsqlc.Provider) oauthConfig {
 	metadata := providerMetadata(provider.Metadata)
 	useProxy, _ := metadata[metadataUseProxyKey].(bool)
 
@@ -184,7 +184,7 @@ func (s *Service) oauthConfigForProvider(provider sqlc.Provider) oauthConfig {
 	}
 }
 
-func supportsOAuth(provider sqlc.Provider) bool {
+func supportsOAuth(provider dbsqlc.Provider) bool {
 	switch models.ClientType(provider.ClientType) {
 	case models.ClientTypeOpenAICodex, models.ClientTypeGitHubCopilot:
 		return true
@@ -193,7 +193,7 @@ func supportsOAuth(provider sqlc.Provider) bool {
 	}
 }
 
-func isUserScopedOAuthProvider(provider sqlc.Provider) bool {
+func isUserScopedOAuthProvider(provider dbsqlc.Provider) bool {
 	return models.ClientType(provider.ClientType) == models.ClientTypeGitHubCopilot
 }
 
@@ -601,17 +601,17 @@ func (s *Service) resolveValidUserOAuthToken(ctx context.Context, cfg oauthConfi
 	return saved.AccessToken, nil
 }
 
-func (s *Service) loadOAuthProvider(ctx context.Context, providerID string) (sqlc.Provider, error) {
+func (s *Service) loadOAuthProvider(ctx context.Context, providerID string) (dbsqlc.Provider, error) {
 	providerUUID, err := db.ParseUUID(providerID)
 	if err != nil {
-		return sqlc.Provider{}, err
+		return dbsqlc.Provider{}, err
 	}
 	provider, err := s.queries.GetProviderByID(ctx, providerUUID)
 	if err != nil {
-		return sqlc.Provider{}, fmt.Errorf("get provider: %w", err)
+		return dbsqlc.Provider{}, fmt.Errorf("get provider: %w", err)
 	}
 	if !supportsOAuth(provider) {
-		return sqlc.Provider{}, errors.New("provider does not support oauth")
+		return dbsqlc.Provider{}, errors.New("provider does not support oauth")
 	}
 	return provider, nil
 }
@@ -641,7 +641,7 @@ func (s *Service) updateOAuthState(ctx context.Context, providerID, state, codeV
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateProviderOAuthState(ctx, sqlc.UpdateProviderOAuthStateParams{
+	return s.queries.UpdateProviderOAuthState(ctx, dbsqlc.UpdateProviderOAuthStateParams{
 		ProviderID:       providerUUID,
 		State:            state,
 		PkceCodeVerifier: codeVerifier,
@@ -657,7 +657,7 @@ func (s *Service) saveOAuthToken(ctx context.Context, providerID string, token o
 	if !token.ExpiresAt.IsZero() {
 		expiresAt = pgtype.Timestamptz{Time: token.ExpiresAt, Valid: true}
 	}
-	_, err = s.queries.UpsertProviderOAuthToken(ctx, sqlc.UpsertProviderOAuthTokenParams{
+	_, err = s.queries.UpsertProviderOAuthToken(ctx, dbsqlc.UpsertProviderOAuthTokenParams{
 		ProviderID:       providerUUID,
 		AccessToken:      token.AccessToken,
 		RefreshToken:     token.RefreshToken,
@@ -679,7 +679,7 @@ func (s *Service) getUserOAuthToken(ctx context.Context, providerID, userID stri
 	if err != nil {
 		return nil, err
 	}
-	row, err := s.queries.GetUserProviderOAuthToken(ctx, sqlc.GetUserProviderOAuthTokenParams{
+	row, err := s.queries.GetUserProviderOAuthToken(ctx, dbsqlc.GetUserProviderOAuthTokenParams{
 		ProviderID: providerUUID,
 		UserID:     userUUID,
 	})
@@ -706,7 +706,7 @@ func (s *Service) updateUserOAuthState(ctx context.Context, providerID, userID, 
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateUserProviderOAuthState(ctx, sqlc.UpdateUserProviderOAuthStateParams{
+	return s.queries.UpdateUserProviderOAuthState(ctx, dbsqlc.UpdateUserProviderOAuthStateParams{
 		ProviderID:       providerUUID,
 		UserID:           userUUID,
 		State:            state,
@@ -728,7 +728,7 @@ func (s *Service) saveUserOAuthToken(ctx context.Context, providerID, userID str
 	if !token.ExpiresAt.IsZero() {
 		expiresAt = pgtype.Timestamptz{Time: token.ExpiresAt, Valid: true}
 	}
-	_, err = s.queries.UpsertUserProviderOAuthToken(ctx, sqlc.UpsertUserProviderOAuthTokenParams{
+	_, err = s.queries.UpsertUserProviderOAuthToken(ctx, dbsqlc.UpsertUserProviderOAuthTokenParams{
 		ProviderID:       providerUUID,
 		UserID:           userUUID,
 		AccessToken:      token.AccessToken,
@@ -752,13 +752,13 @@ func (s *Service) deleteUserOAuthToken(ctx context.Context, providerID, userID s
 	if err != nil {
 		return err
 	}
-	return s.queries.DeleteUserProviderOAuthToken(ctx, sqlc.DeleteUserProviderOAuthTokenParams{
+	return s.queries.DeleteUserProviderOAuthToken(ctx, dbsqlc.DeleteUserProviderOAuthTokenParams{
 		ProviderID: providerUUID,
 		UserID:     userUUID,
 	})
 }
 
-func toProviderOAuthToken(row sqlc.ProviderOauthToken) *oauthTokenRecord {
+func toProviderOAuthToken(row dbsqlc.ProviderOauthToken) *oauthTokenRecord {
 	token := &oauthTokenRecord{
 		ProviderID:       row.ProviderID.String(),
 		AccessToken:      row.AccessToken,
@@ -775,7 +775,7 @@ func toProviderOAuthToken(row sqlc.ProviderOauthToken) *oauthTokenRecord {
 	return token
 }
 
-func toUserProviderOAuthToken(row sqlc.UserProviderOauthToken) *oauthTokenRecord {
+func toUserProviderOAuthToken(row dbsqlc.UserProviderOauthToken) *oauthTokenRecord {
 	token := &oauthTokenRecord{
 		ProviderID:       row.ProviderID.String(),
 		UserID:           row.UserID.String(),
@@ -947,7 +947,7 @@ func (s *Service) providerUsesProxyByID(ctx context.Context, providerID string) 
 
 // ProviderUsesProxy reports whether the given provider record has opted into
 // using the global HTTP proxy.
-func ProviderUsesProxy(provider sqlc.Provider) bool {
+func ProviderUsesProxy(provider dbsqlc.Provider) bool {
 	metadata := providerMetadata(provider.Metadata)
 	v, _ := metadata[metadataUseProxyKey].(bool)
 	return v

@@ -17,8 +17,6 @@ import (
 	ctr "github.com/memohai/memoh/internal/container"
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
 	"github.com/memohai/memoh/internal/identity"
 	netctl "github.com/memohai/memoh/internal/network"
 	skillset "github.com/memohai/memoh/internal/skills"
@@ -82,7 +80,7 @@ type Manager struct {
 	cfg               config.WorkspaceConfig
 	namespace         string
 	db                *pgxpool.Pool
-	queries           dbstore.Queries
+	queries           *dbsqlc.Queries
 	logger            *slog.Logger
 	containerLockMu   sync.Mutex
 	containerLocks    map[string]*sync.Mutex
@@ -96,15 +94,15 @@ type WorkspaceStartConfig struct {
 	LocalWorkspacePath string
 }
 
-func NewManager(log *slog.Logger, service runtimeService, networkController netctl.Controller, cfg config.WorkspaceConfig, namespace string, conn *pgxpool.Pool, queryOverride ...dbstore.Queries) *Manager {
+func NewManager(log *slog.Logger, service runtimeService, networkController netctl.Controller, cfg config.WorkspaceConfig, namespace string, conn *pgxpool.Pool, queryOverride ...*dbsqlc.Queries) *Manager {
 	if namespace == "" {
 		namespace = config.DefaultNamespace
 	}
-	var queries dbstore.Queries
+	var queries *dbsqlc.Queries
 	if len(queryOverride) > 0 {
 		queries = queryOverride[0]
 	} else if conn != nil {
-		queries = postgresstore.NewQueries(dbsqlc.New(conn))
+		queries = dbsqlc.New(conn)
 	}
 	m := &Manager{
 		service:           service,

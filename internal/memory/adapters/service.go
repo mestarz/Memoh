@@ -10,19 +10,18 @@ import (
 
 	"github.com/memohai/memoh/internal/config"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	qdrantclient "github.com/memohai/memoh/internal/memory/qdrant"
 )
 
 type Service struct {
-	queries  dbstore.Queries
+	queries  *dbsqlc.Queries
 	registry *Registry
 	logger   *slog.Logger
 	cfg      config.Config
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, cfg config.Config) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, cfg config.Config) *Service {
 	return &Service{
 		queries: queries,
 		logger:  log.With(slog.String("service", "memory_providers")),
@@ -143,7 +142,7 @@ func (s *Service) Create(ctx context.Context, req ProviderCreateRequest) (Provid
 	if err != nil {
 		return ProviderGetResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
-	row, err := s.queries.CreateMemoryProvider(ctx, sqlc.CreateMemoryProviderParams{
+	row, err := s.queries.CreateMemoryProvider(ctx, dbsqlc.CreateMemoryProviderParams{
 		Name:      strings.TrimSpace(req.Name),
 		Provider:  string(req.Provider),
 		Config:    configJSON,
@@ -248,7 +247,7 @@ func (s *Service) Update(ctx context.Context, id string, req ProviderUpdateReque
 		}
 		config = configJSON
 	}
-	updated, err := s.queries.UpdateMemoryProvider(ctx, sqlc.UpdateMemoryProviderParams{
+	updated, err := s.queries.UpdateMemoryProvider(ctx, dbsqlc.UpdateMemoryProviderParams{
 		ID:     pgID,
 		Name:   name,
 		Config: config,
@@ -282,7 +281,7 @@ func (s *Service) EnsureDefault(ctx context.Context) (ProviderGetResponse, error
 		return s.toGetResponse(row), nil
 	}
 	configJSON, _ := json.Marshal(map[string]any{})
-	created, err := s.queries.CreateMemoryProvider(ctx, sqlc.CreateMemoryProviderParams{
+	created, err := s.queries.CreateMemoryProvider(ctx, dbsqlc.CreateMemoryProviderParams{
 		Name:      "Built-in Memory",
 		Provider:  string(ProviderBuiltin),
 		Config:    configJSON,
@@ -294,7 +293,7 @@ func (s *Service) EnsureDefault(ctx context.Context) (ProviderGetResponse, error
 	return s.toGetResponse(created), nil
 }
 
-func (s *Service) toGetResponse(row sqlc.MemoryProvider) ProviderGetResponse {
+func (s *Service) toGetResponse(row dbsqlc.MemoryProvider) ProviderGetResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		if err := json.Unmarshal(row.Config, &cfg); err != nil {

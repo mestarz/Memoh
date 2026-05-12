@@ -10,14 +10,14 @@ import (
 
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/settings"
 )
 
-func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatRequest, botSettings settings.Settings, cs conversation.Settings) (models.GetResponse, sqlc.Provider, error) {
+func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatRequest, botSettings settings.Settings, cs conversation.Settings) (models.GetResponse, dbsqlc.Provider, error) {
 	if r.modelsService == nil {
-		return models.GetResponse{}, sqlc.Provider{}, errors.New("models service not configured")
+		return models.GetResponse{}, dbsqlc.Provider{}, errors.New("models service not configured")
 	}
 	modelID := strings.TrimSpace(req.Model)
 	providerFilter := strings.TrimSpace(req.Provider)
@@ -32,7 +32,7 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 	}
 
 	if modelID == "" {
-		return models.GetResponse{}, sqlc.Provider{}, errors.New("chat model not configured: specify model in request or bot settings")
+		return models.GetResponse{}, dbsqlc.Provider{}, errors.New("chat model not configured: specify model in request or bot settings")
 	}
 
 	if providerFilter == "" {
@@ -41,24 +41,24 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 
 	candidates, err := r.listCandidates(ctx, providerFilter)
 	if err != nil {
-		return models.GetResponse{}, sqlc.Provider{}, err
+		return models.GetResponse{}, dbsqlc.Provider{}, err
 	}
 	for _, m := range candidates {
 		if matchesModelReference(m, modelID) {
 			prov, err := models.FetchProviderByID(ctx, r.queries, m.ProviderID)
 			if err != nil {
-				return models.GetResponse{}, sqlc.Provider{}, err
+				return models.GetResponse{}, dbsqlc.Provider{}, err
 			}
 			return m, prov, nil
 		}
 	}
-	return models.GetResponse{}, sqlc.Provider{}, fmt.Errorf("chat model %q not found for provider %q", modelID, providerFilter)
+	return models.GetResponse{}, dbsqlc.Provider{}, fmt.Errorf("chat model %q not found for provider %q", modelID, providerFilter)
 }
 
-func (r *Resolver) fetchChatModel(ctx context.Context, modelID string) (models.GetResponse, sqlc.Provider, error) {
+func (r *Resolver) fetchChatModel(ctx context.Context, modelID string) (models.GetResponse, dbsqlc.Provider, error) {
 	modelRef := strings.TrimSpace(modelID)
 	if modelRef == "" {
-		return models.GetResponse{}, sqlc.Provider{}, errors.New("model id is required")
+		return models.GetResponse{}, dbsqlc.Provider{}, errors.New("model id is required")
 	}
 
 	// Support both model UUID and model_id slug. UUID-formatted slugs still
@@ -71,21 +71,21 @@ func (r *Resolver) fetchChatModel(ctx context.Context, modelID string) (models.G
 			goto resolved
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			return models.GetResponse{}, sqlc.Provider{}, err
+			return models.GetResponse{}, dbsqlc.Provider{}, err
 		}
 	}
 	model, err = r.modelsService.GetByModelID(ctx, modelRef)
 	if err != nil {
-		return models.GetResponse{}, sqlc.Provider{}, err
+		return models.GetResponse{}, dbsqlc.Provider{}, err
 	}
 
 resolved:
 	if model.Type != models.ModelTypeChat {
-		return models.GetResponse{}, sqlc.Provider{}, errors.New("model is not a chat model")
+		return models.GetResponse{}, dbsqlc.Provider{}, errors.New("model is not a chat model")
 	}
 	prov, err := models.FetchProviderByID(ctx, r.queries, model.ProviderID)
 	if err != nil {
-		return models.GetResponse{}, sqlc.Provider{}, err
+		return models.GetResponse{}, dbsqlc.Provider{}, err
 	}
 	return model, prov, nil
 }

@@ -16,7 +16,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	messagepkg "github.com/memohai/memoh/internal/message"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/providers"
@@ -205,7 +205,7 @@ type SpawnProvider struct {
 	agent          SpawnAgent
 	settings       *settings.Service
 	models         *models.Service
-	queries        dbstore.Queries
+	queries        *dbsqlc.Queries
 	sessionService *sessionpkg.Service
 	messageService messagepkg.Writer
 	systemPromptFn func(sessionType string) string
@@ -219,7 +219,7 @@ func NewSpawnProvider(
 	log *slog.Logger,
 	settingsSvc *settings.Service,
 	modelsSvc *models.Service,
-	queries dbstore.Queries,
+	queries *dbsqlc.Queries,
 	sessionService *sessionpkg.Service,
 ) *SpawnProvider {
 	if log == nil {

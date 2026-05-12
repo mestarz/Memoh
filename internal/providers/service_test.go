@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
 
@@ -192,7 +192,7 @@ func TestOAuthConfigForGitHubCopilotUsesFixedDeviceFlowSettings(t *testing.T) {
 	t.Parallel()
 
 	service := &Service{}
-	cfg := service.oauthConfigForProvider(sqlc.Provider{
+	cfg := service.oauthConfigForProvider(dbsqlc.Provider{
 		ClientType: string(models.ClientTypeGitHubCopilot),
 		Config:     []byte(`{"api_key":"legacy","oauth_client_secret":"legacy-secret"}`),
 		Metadata:   []byte(`{"oauth_client_id":"custom","oauth_scopes":"repo"}`),
@@ -240,7 +240,7 @@ func TestFetchRemoteModelsFromAnthropicUsesAnthropicHeaders(t *testing.T) {
 	defer server.Close()
 
 	svc := &Service{}
-	remoteModels, err := svc.fetchRemoteModelsFromProvider(context.Background(), sqlc.Provider{
+	remoteModels, err := svc.fetchRemoteModelsFromProvider(context.Background(), dbsqlc.Provider{
 		ClientType: string(models.ClientTypeAnthropicMessages),
 		Config:     []byte(`{"base_url":"` + server.URL + `","api_key":"sk-ant-test"}`),
 	})

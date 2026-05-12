@@ -10,12 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
 
-func SyncRegistry(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, registry *Registry) error {
+func SyncRegistry(ctx context.Context, logger *slog.Logger, queries *dbsqlc.Queries, registry *Registry) error {
 	for _, def := range registry.List() {
 		provider, err := queries.GetProviderByClientType(ctx, string(def.ClientType))
 		if err != nil {
@@ -40,7 +39,7 @@ func SyncRegistry(ctx context.Context, logger *slog.Logger, queries dbstore.Quer
 		if !isTranscriptionClientType(def.ClientType) {
 			for _, model := range def.Models {
 				if shouldHideTemplateModel(def, models.ModelTypeSpeech, model.ID) {
-					if err := queries.DeleteModelByProviderAndType(ctx, sqlc.DeleteModelByProviderAndTypeParams{
+					if err := queries.DeleteModelByProviderAndType(ctx, dbsqlc.DeleteModelByProviderAndTypeParams{
 						ProviderID: provider.ID,
 						ModelID:    model.ID,
 						Type:       string(models.ModelTypeSpeech),
@@ -54,7 +53,7 @@ func SyncRegistry(ctx context.Context, logger *slog.Logger, queries dbstore.Quer
 					return fmt.Errorf("marshal speech model config: %w", err)
 				}
 				name := pgtype.Text{String: model.Name, Valid: model.Name != ""}
-				if _, err := queries.UpsertRegistryModel(ctx, sqlc.UpsertRegistryModelParams{
+				if _, err := queries.UpsertRegistryModel(ctx, dbsqlc.UpsertRegistryModelParams{
 					ModelID:    model.ID,
 					Name:       name,
 					ProviderID: provider.ID,
@@ -68,7 +67,7 @@ func SyncRegistry(ctx context.Context, logger *slog.Logger, queries dbstore.Quer
 		}
 		for _, model := range def.TranscriptionModels {
 			if shouldHideTemplateModel(def, models.ModelTypeTranscription, model.ID) {
-				if err := queries.DeleteModelByProviderAndType(ctx, sqlc.DeleteModelByProviderAndTypeParams{
+				if err := queries.DeleteModelByProviderAndType(ctx, dbsqlc.DeleteModelByProviderAndTypeParams{
 					ProviderID: provider.ID,
 					ModelID:    model.ID,
 					Type:       string(models.ModelTypeTranscription),
@@ -82,7 +81,7 @@ func SyncRegistry(ctx context.Context, logger *slog.Logger, queries dbstore.Quer
 				return fmt.Errorf("marshal transcription model config: %w", err)
 			}
 			name := pgtype.Text{String: model.Name, Valid: model.Name != ""}
-			if _, err := queries.UpsertRegistryModel(ctx, sqlc.UpsertRegistryModelParams{
+			if _, err := queries.UpsertRegistryModel(ctx, dbsqlc.UpsertRegistryModelParams{
 				ModelID:    model.ID,
 				Name:       name,
 				ProviderID: provider.ID,

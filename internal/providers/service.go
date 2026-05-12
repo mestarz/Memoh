@@ -17,8 +17,7 @@ import (
 
 	memohcopilot "github.com/memohai/memoh/internal/copilot"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
 
@@ -32,7 +31,7 @@ type AppSettingsResolver interface {
 
 // Service handles provider operations.
 type Service struct {
-	queries     dbstore.Queries
+	queries     *dbsqlc.Queries
 	logger      *slog.Logger
 	httpClient  *http.Client
 	callbackURL string
@@ -40,7 +39,7 @@ type Service struct {
 }
 
 // NewService creates a new provider service.
-func NewService(log *slog.Logger, queries dbstore.Queries, callbackURL string, appSettings AppSettingsResolver) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, callbackURL string, appSettings AppSettingsResolver) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -92,7 +91,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (GetResponse, e
 		icon = pgtype.Text{String: req.Icon, Valid: true}
 	}
 
-	provider, err := s.queries.CreateProvider(ctx, sqlc.CreateProviderParams{
+	provider, err := s.queries.CreateProvider(ctx, dbsqlc.CreateProviderParams{
 		Name:       req.Name,
 		ClientType: clientType,
 		Icon:       icon,
@@ -200,7 +199,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Get
 		return GetResponse{}, fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	updated, err := s.queries.UpdateProvider(ctx, sqlc.UpdateProviderParams{
+	updated, err := s.queries.UpdateProvider(ctx, dbsqlc.UpdateProviderParams{
 		ID:         providerID,
 		Name:       name,
 		ClientType: clientType,
@@ -344,7 +343,7 @@ func (s *Service) FetchRemoteModels(ctx context.Context, id string) ([]RemoteMod
 	return s.fetchRemoteModelsFromProvider(ctx, provider)
 }
 
-func (s *Service) fetchRemoteModelsFromProvider(ctx context.Context, provider sqlc.Provider) ([]RemoteModel, error) {
+func (s *Service) fetchRemoteModelsFromProvider(ctx context.Context, provider dbsqlc.Provider) ([]RemoteModel, error) {
 	cfg := providerConfig(provider.Config)
 	baseURL := strings.TrimRight(configString(cfg, "base_url"), "/")
 	apiKey := configString(cfg, "api_key")
@@ -421,7 +420,7 @@ func normalizeFetchedModels(clientType models.ClientType, remoteModels []RemoteM
 }
 
 // toGetResponse converts a database provider to a response.
-func (s *Service) toGetResponse(provider sqlc.Provider) GetResponse {
+func (s *Service) toGetResponse(provider dbsqlc.Provider) GetResponse {
 	var metadata map[string]any
 	if len(provider.Metadata) > 0 {
 		if err := json.Unmarshal(provider.Metadata, &metadata); err != nil {
@@ -477,7 +476,7 @@ func configString(cfg map[string]any, key string) string {
 }
 
 // ProviderConfigString is a public helper for extracting a string from the config JSONB.
-func ProviderConfigString(provider sqlc.Provider, key string) string {
+func ProviderConfigString(provider dbsqlc.Provider, key string) string {
 	return configString(providerConfig(provider.Config), key)
 }
 

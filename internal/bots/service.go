@@ -15,14 +15,13 @@ import (
 
 	"github.com/memohai/memoh/internal/acl"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	tzutil "github.com/memohai/memoh/internal/timezone"
 )
 
 // Service provides bot CRUD and membership management.
 type Service struct {
-	queries               dbstore.Queries
+	queries               *dbsqlc.Queries
 	logger                *slog.Logger
 	containerLifecycle    ContainerLifecycle
 	checkers              []RuntimeChecker
@@ -40,7 +39,7 @@ var (
 )
 
 // NewService creates a new bot service.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -127,7 +126,7 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 	if err != nil {
 		return Bot{}, err
 	}
-	row, err := s.queries.CreateBot(ctx, sqlc.CreateBotParams{
+	row, err := s.queries.CreateBot(ctx, dbsqlc.CreateBotParams{
 		OwnerUserID: ownerUUID,
 		DisplayName: pgtype.Text{String: displayName, Valid: displayName != ""},
 		AvatarUrl:   pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
@@ -260,7 +259,7 @@ func (s *Service) Update(ctx context.Context, botID string, req UpdateBotRequest
 	if err != nil {
 		return Bot{}, err
 	}
-	row, err := s.queries.UpdateBotProfile(ctx, sqlc.UpdateBotProfileParams{
+	row, err := s.queries.UpdateBotProfile(ctx, dbsqlc.UpdateBotProfileParams{
 		ID:          botUUID,
 		DisplayName: pgtype.Text{String: displayName, Valid: displayName != ""},
 		AvatarUrl:   pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
@@ -297,7 +296,7 @@ func (s *Service) TransferOwner(ctx context.Context, botID string, ownerUserID s
 	if err := s.ensureUserExists(ctx, ownerUUID); err != nil {
 		return Bot{}, err
 	}
-	row, err := s.queries.UpdateBotOwner(ctx, sqlc.UpdateBotOwnerParams{
+	row, err := s.queries.UpdateBotOwner(ctx, dbsqlc.UpdateBotOwnerParams{
 		ID:          botUUID,
 		OwnerUserID: ownerUUID,
 	})
@@ -330,7 +329,7 @@ func (s *Service) Delete(ctx context.Context, botID string) error {
 	if strings.TrimSpace(row.Status) == BotStatusDeleting {
 		return nil
 	}
-	if err := s.queries.UpdateBotStatus(ctx, sqlc.UpdateBotStatusParams{
+	if err := s.queries.UpdateBotStatus(ctx, dbsqlc.UpdateBotStatusParams{
 		ID:     botUUID,
 		Status: BotStatusDeleting,
 	}); err != nil {
@@ -425,7 +424,7 @@ func (s *Service) updateStatus(ctx context.Context, botID, status string) error 
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateBotStatus(ctx, sqlc.UpdateBotStatusParams{
+	return s.queries.UpdateBotStatus(ctx, dbsqlc.UpdateBotStatusParams{
 		ID:     botUUID,
 		Status: strings.TrimSpace(status),
 	})
@@ -445,26 +444,26 @@ func (s *Service) ensureUserExists(ctx context.Context, userID pgtype.UUID) erro
 	return nil
 }
 
-func asSQLCBot(v any) sqlc.Bot {
+func asSQLCBot(v any) dbsqlc.Bot {
 	switch r := v.(type) {
-	case sqlc.Bot:
+	case dbsqlc.Bot:
 		return r
-	case sqlc.CreateBotRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
-	case sqlc.GetBotByIDRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, CompactionEnabled: r.CompactionEnabled, CompactionThreshold: r.CompactionThreshold, CompactionModelID: r.CompactionModelID, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
-	case sqlc.ListBotsByOwnerRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
-	case sqlc.UpdateBotProfileRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
-	case sqlc.UpdateBotOwnerRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	case dbsqlc.CreateBotRow:
+		return dbsqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	case dbsqlc.GetBotByIDRow:
+		return dbsqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, CompactionEnabled: r.CompactionEnabled, CompactionThreshold: r.CompactionThreshold, CompactionModelID: r.CompactionModelID, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	case dbsqlc.ListBotsByOwnerRow:
+		return dbsqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	case dbsqlc.UpdateBotProfileRow:
+		return dbsqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	case dbsqlc.UpdateBotOwnerRow:
+		return dbsqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	default:
-		return sqlc.Bot{}
+		return dbsqlc.Bot{}
 	}
 }
 
-func toBot(row sqlc.Bot) (Bot, error) {
+func toBot(row dbsqlc.Bot) (Bot, error) {
 	displayName := ""
 	if row.DisplayName.Valid {
 		displayName = row.DisplayName.String
@@ -534,7 +533,7 @@ func normalizeOptionalTimezone(raw *string) (pgtype.Text, error) {
 	return pgtype.Text{String: loc.String(), Valid: true}, nil
 }
 
-func (s *Service) attachCheckSummary(ctx context.Context, bot *Bot, row sqlc.Bot) error {
+func (s *Service) attachCheckSummary(ctx context.Context, bot *Bot, row dbsqlc.Bot) error {
 	checks, err := s.buildRuntimeChecks(ctx, row, false)
 	if err != nil {
 		return err
@@ -547,7 +546,7 @@ func (s *Service) attachCheckSummary(ctx context.Context, bot *Bot, row sqlc.Bot
 
 // buildRuntimeChecks composes builtin checks and optional dynamic checker results.
 // includeDynamic is disabled when computing list summary to avoid expensive runtime probes.
-func (s *Service) buildRuntimeChecks(ctx context.Context, row sqlc.Bot, includeDynamic bool) ([]BotCheck, error) {
+func (s *Service) buildRuntimeChecks(ctx context.Context, row dbsqlc.Bot, includeDynamic bool) ([]BotCheck, error) {
 	status := strings.TrimSpace(row.Status)
 	checks := make([]BotCheck, 0, 4)
 

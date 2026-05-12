@@ -10,7 +10,7 @@ import (
 	sdk "github.com/memohai/twilight-ai/sdk"
 
 	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	messageevent "github.com/memohai/memoh/internal/message/event"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/oauthctx"
@@ -96,7 +96,7 @@ func (r *Resolver) maybeGenerateSessionTitle(ctx context.Context, req conversati
 	}
 }
 
-func (r *Resolver) generateTitle(ctx context.Context, userID string, model models.GetResponse, provider sqlc.Provider, userQuery string) string {
+func (r *Resolver) generateTitle(ctx context.Context, userID string, model models.GetResponse, provider dbsqlc.Provider, userQuery string) string {
 	userSnippet := truncate(strings.TrimSpace(userQuery), titlePromptMaxInputChars)
 	if userSnippet == "" {
 		return ""

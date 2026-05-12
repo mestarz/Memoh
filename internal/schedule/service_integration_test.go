@@ -13,13 +13,11 @@ import (
 
 	"github.com/memohai/memoh/internal/boot"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/schedule"
 )
 
-func setupScheduleIntegrationTest(t *testing.T) (*schedule.Service, dbstore.Queries, *pgxpool.Pool, *mockTriggerer, func()) {
+func setupScheduleIntegrationTest(t *testing.T) (*schedule.Service, *dbsqlc.Queries, *pgxpool.Pool, *mockTriggerer, func()) {
 	t.Helper()
 
 	dsn := os.Getenv("TEST_POSTGRES_DSN")
@@ -37,7 +35,7 @@ func setupScheduleIntegrationTest(t *testing.T) (*schedule.Service, dbstore.Quer
 		t.Skipf("skip integration test: database ping failed: %v", err)
 	}
 
-	queries := postgresstore.NewQueries(sqlc.New(pool))
+	queries := dbsqlc.New(pool)
 	mock := &mockTriggerer{}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	cfg := &boot.RuntimeConfig{JwtSecret: "integration-test-jwt-secret"}
@@ -61,10 +59,10 @@ func (m *mockTriggerer) TriggerSchedule(_ context.Context, botID string, payload
 	return schedule.TriggerResult{Status: "ok"}, nil
 }
 
-func createUserBotAndSchedule(ctx context.Context, t *testing.T, queries dbstore.Queries) (ownerUserID, botID, scheduleID string) {
+func createUserBotAndSchedule(ctx context.Context, t *testing.T, queries *dbsqlc.Queries) (ownerUserID, botID, scheduleID string) {
 	t.Helper()
 
-	userRow, err := queries.CreateUser(ctx, sqlc.CreateUserParams{
+	userRow, err := queries.CreateUser(ctx, dbsqlc.CreateUserParams{
 		IsActive: true,
 		Metadata: []byte("{}"),
 	})
@@ -78,7 +76,7 @@ func createUserBotAndSchedule(ctx context.Context, t *testing.T, queries dbstore
 		t.Fatalf("parse owner uuid: %v", err)
 	}
 	meta, _ := json.Marshal(map[string]any{"source": "schedule-integration-test"})
-	botRow, err := queries.CreateBot(ctx, sqlc.CreateBotParams{
+	botRow, err := queries.CreateBot(ctx, dbsqlc.CreateBotParams{
 		OwnerUserID: pgOwnerID,
 		DisplayName: pgtype.Text{String: "schedule-test-bot", Valid: true},
 		AvatarUrl:   pgtype.Text{},
@@ -95,7 +93,7 @@ func createUserBotAndSchedule(ctx context.Context, t *testing.T, queries dbstore
 	if err != nil {
 		t.Fatalf("parse bot uuid: %v", err)
 	}
-	schedRow, err := queries.CreateSchedule(ctx, sqlc.CreateScheduleParams{
+	schedRow, err := queries.CreateSchedule(ctx, dbsqlc.CreateScheduleParams{
 		Name:        "integration-daily",
 		Description: "daily job for integration test",
 		Pattern:     "0 0 * * *",
@@ -111,7 +109,7 @@ func createUserBotAndSchedule(ctx context.Context, t *testing.T, queries dbstore
 	return ownerUserID, botID, scheduleID
 }
 
-func cleanupScheduleTestData(ctx context.Context, t *testing.T, queries dbstore.Queries, pool *pgxpool.Pool, ownerUserID, botID, scheduleID string) {
+func cleanupScheduleTestData(ctx context.Context, t *testing.T, queries *dbsqlc.Queries, pool *pgxpool.Pool, ownerUserID, botID, scheduleID string) {
 	t.Helper()
 	schedID, _ := db.ParseUUID(scheduleID)
 	_ = queries.DeleteSchedule(ctx, schedID)

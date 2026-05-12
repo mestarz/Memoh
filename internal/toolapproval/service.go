@@ -13,18 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/settings"
 )
 
 type Service struct {
-	queries  dbstore.Queries
+	queries  *dbsqlc.Queries
 	settings *settings.Service
 	logger   *slog.Logger
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, settings *settings.Service) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, settings *settings.Service) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -85,7 +84,7 @@ func (s *Service) CreatePending(ctx context.Context, input CreatePendingInput) (
 	if err != nil {
 		return Request{}, err
 	}
-	row, err := s.queries.CreateToolApprovalRequest(ctx, sqlc.CreateToolApprovalRequestParams{
+	row, err := s.queries.CreateToolApprovalRequest(ctx, dbsqlc.CreateToolApprovalRequestParams{
 		BotID:                        botID,
 		SessionID:                    sessionID,
 		RouteID:                      optionalUUID(input.RouteID),
@@ -131,7 +130,7 @@ func (s *Service) ResolveTarget(ctx context.Context, input ResolveInput) (Reques
 	}
 	if explicit != "" {
 		if shortID, err := strconv.Atoi(explicit); err == nil {
-			row, err := s.queries.GetPendingToolApprovalBySessionShortID(ctx, sqlc.GetPendingToolApprovalBySessionShortIDParams{
+			row, err := s.queries.GetPendingToolApprovalBySessionShortID(ctx, dbsqlc.GetPendingToolApprovalBySessionShortIDParams{
 				BotID:     botID,
 				SessionID: sessionID,
 				ShortID:   int32(shortID), //nolint:gosec // user-facing approval numbers are small positive integers.
@@ -152,7 +151,7 @@ func (s *Service) ResolveTarget(ctx context.Context, input ResolveInput) (Reques
 		return Request{}, ErrNotFound
 	}
 	if replyID := strings.TrimSpace(input.ReplyExternalMessageID); replyID != "" {
-		row, err := s.queries.GetPendingToolApprovalByReplyMessage(ctx, sqlc.GetPendingToolApprovalByReplyMessageParams{
+		row, err := s.queries.GetPendingToolApprovalByReplyMessage(ctx, dbsqlc.GetPendingToolApprovalByReplyMessageParams{
 			BotID:                   botID,
 			SessionID:               sessionID,
 			PromptExternalMessageID: replyID,
@@ -164,7 +163,7 @@ func (s *Service) ResolveTarget(ctx context.Context, input ResolveInput) (Reques
 			return Request{}, err
 		}
 	}
-	row, err := s.queries.GetLatestPendingToolApprovalBySession(ctx, sqlc.GetLatestPendingToolApprovalBySessionParams{
+	row, err := s.queries.GetLatestPendingToolApprovalBySession(ctx, dbsqlc.GetLatestPendingToolApprovalBySessionParams{
 		BotID:     botID,
 		SessionID: sessionID,
 	})
@@ -180,7 +179,7 @@ func (s *Service) Approve(ctx context.Context, approvalID, actorID, reason strin
 	if err != nil {
 		return Request{}, err
 	}
-	row, err := s.queries.ApproveToolApprovalRequest(ctx, sqlc.ApproveToolApprovalRequestParams{
+	row, err := s.queries.ApproveToolApprovalRequest(ctx, dbsqlc.ApproveToolApprovalRequestParams{
 		ID:                         id,
 		Reason:                     strings.TrimSpace(reason),
 		DecidedByChannelIdentityID: decidedBy,
@@ -197,7 +196,7 @@ func (s *Service) Reject(ctx context.Context, approvalID, actorID, reason string
 	if err != nil {
 		return Request{}, err
 	}
-	row, err := s.queries.RejectToolApprovalRequest(ctx, sqlc.RejectToolApprovalRequestParams{
+	row, err := s.queries.RejectToolApprovalRequest(ctx, dbsqlc.RejectToolApprovalRequestParams{
 		ID:                         id,
 		Reason:                     strings.TrimSpace(reason),
 		DecidedByChannelIdentityID: decidedBy,
@@ -210,7 +209,7 @@ func (s *Service) UpdatePromptMessage(ctx context.Context, approvalID, promptMes
 	if err != nil {
 		return Request{}, err
 	}
-	row, err := s.queries.UpdateToolApprovalPromptMessage(ctx, sqlc.UpdateToolApprovalPromptMessageParams{
+	row, err := s.queries.UpdateToolApprovalPromptMessage(ctx, dbsqlc.UpdateToolApprovalPromptMessageParams{
 		ID:                      id,
 		PromptMessageID:         optionalUUID(promptMessageID),
 		PromptExternalMessageID: strings.TrimSpace(externalID),
@@ -235,14 +234,14 @@ func (s *Service) listBySession(ctx context.Context, botID, sessionID string, pe
 	if err != nil {
 		return nil, err
 	}
-	var rows []sqlc.ToolApprovalRequest
+	var rows []dbsqlc.ToolApprovalRequest
 	if pendingOnly {
-		rows, err = s.queries.ListPendingToolApprovalsBySession(ctx, sqlc.ListPendingToolApprovalsBySessionParams{
+		rows, err = s.queries.ListPendingToolApprovalsBySession(ctx, dbsqlc.ListPendingToolApprovalsBySessionParams{
 			BotID:     pgBotID,
 			SessionID: pgSessionID,
 		})
 	} else {
-		rows, err = s.queries.ListToolApprovalsBySession(ctx, sqlc.ListToolApprovalsBySessionParams{
+		rows, err = s.queries.ListToolApprovalsBySession(ctx, dbsqlc.ListToolApprovalsBySessionParams{
 			BotID:     pgBotID,
 			SessionID: pgSessionID,
 		})
@@ -257,7 +256,7 @@ func (s *Service) listBySession(ctx context.Context, botID, sessionID string, pe
 	return result, nil
 }
 
-func requestFromRowOrErr(row sqlc.ToolApprovalRequest, err error) (Request, error) {
+func requestFromRowOrErr(row dbsqlc.ToolApprovalRequest, err error) (Request, error) {
 	if err != nil {
 		return Request{}, mapLookupErr(err)
 	}
@@ -300,7 +299,7 @@ func (s *Service) optionalChannelIdentityUUID(ctx context.Context, value string)
 	return id, nil
 }
 
-func requestFromRow(row sqlc.ToolApprovalRequest) Request {
+func requestFromRow(row dbsqlc.ToolApprovalRequest) Request {
 	var input map[string]any
 	_ = json.Unmarshal(row.ToolInput, &input)
 	req := Request{

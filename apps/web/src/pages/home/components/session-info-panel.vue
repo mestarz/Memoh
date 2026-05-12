@@ -57,7 +57,6 @@
             <span class="text-muted-foreground">{{ $t('chat.infoCacheRead') }}</span>
             <span class="font-medium text-foreground tabular-nums">{{ formatTokenCount(info?.cache_stats?.cache_read_tokens ?? 0) }}</span>
           </div>
-
         </div>
 
         <!-- Compact Now -->

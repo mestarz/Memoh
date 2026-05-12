@@ -8,8 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // OAuthToken holds a stored OAuth2 token for an email provider.
@@ -33,10 +32,10 @@ type OAuthTokenStore interface {
 
 // DBOAuthTokenStore is the DB-backed implementation of OAuthTokenStore.
 type DBOAuthTokenStore struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 }
 
-func NewDBOAuthTokenStore(queries dbstore.Queries) *DBOAuthTokenStore {
+func NewDBOAuthTokenStore(queries *dbsqlc.Queries) *DBOAuthTokenStore {
 	return &DBOAuthTokenStore{queries: queries}
 }
 
@@ -61,7 +60,7 @@ func (s *DBOAuthTokenStore) Save(ctx context.Context, t OAuthToken) error {
 	if !t.ExpiresAt.IsZero() {
 		expiresAt = pgtype.Timestamptz{Time: t.ExpiresAt, Valid: true}
 	}
-	_, err = s.queries.UpsertEmailOAuthToken(ctx, sqlc.UpsertEmailOAuthTokenParams{
+	_, err = s.queries.UpsertEmailOAuthToken(ctx, dbsqlc.UpsertEmailOAuthTokenParams{
 		EmailProviderID: pgID,
 		EmailAddress:    t.EmailAddress,
 		AccessToken:     t.AccessToken,
@@ -78,7 +77,7 @@ func (s *DBOAuthTokenStore) SetPendingState(ctx context.Context, providerID, sta
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateEmailOAuthState(ctx, sqlc.UpdateEmailOAuthStateParams{
+	return s.queries.UpdateEmailOAuthState(ctx, dbsqlc.UpdateEmailOAuthStateParams{
 		EmailProviderID: pgID,
 		State:           state,
 	})
@@ -100,7 +99,7 @@ func (s *DBOAuthTokenStore) Delete(ctx context.Context, providerID string) error
 	return s.queries.DeleteEmailOAuthToken(ctx, pgID)
 }
 
-func (*DBOAuthTokenStore) toOAuthToken(row sqlc.EmailOauthToken) *OAuthToken {
+func (*DBOAuthTokenStore) toOAuthToken(row dbsqlc.EmailOauthToken) *OAuthToken {
 	t := &OAuthToken{
 		ProviderID:   row.EmailProviderID.String(),
 		EmailAddress: row.EmailAddress,

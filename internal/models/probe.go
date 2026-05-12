@@ -19,7 +19,7 @@ import (
 
 	memohcopilot "github.com/memohai/memoh/internal/copilot"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/oauthctx"
 )
 
@@ -206,7 +206,7 @@ type modelCredentials struct {
 	CodexAccountID string
 }
 
-func (s *Service) resolveModelCredentials(ctx context.Context, provider sqlc.Provider) (modelCredentials, error) {
+func (s *Service) resolveModelCredentials(ctx context.Context, provider dbsqlc.Provider) (modelCredentials, error) {
 	apiKey := providerConfigString(provider.Config, "api_key")
 
 	switch ClientType(provider.ClientType) {
@@ -240,7 +240,7 @@ func (s *Service) resolveModelCredentials(ctx context.Context, provider sqlc.Pro
 	}
 }
 
-func (s *Service) resolveGitHubCopilotAccessToken(ctx context.Context, provider sqlc.Provider) (string, error) {
+func (s *Service) resolveGitHubCopilotAccessToken(ctx context.Context, provider dbsqlc.Provider) (string, error) {
 	userID := oauthctx.UserIDFromContext(ctx)
 	if userID == "" {
 		return "", errors.New("github copilot requires a current user")
@@ -249,7 +249,7 @@ func (s *Service) resolveGitHubCopilotAccessToken(ctx context.Context, provider 
 	if err != nil {
 		return "", err
 	}
-	row, err := s.queries.GetUserProviderOAuthToken(ctx, sqlc.GetUserProviderOAuthTokenParams{
+	row, err := s.queries.GetUserProviderOAuthToken(ctx, dbsqlc.GetUserProviderOAuthTokenParams{
 		ProviderID: provider.ID,
 		UserID:     userUUID,
 	})
@@ -295,7 +295,7 @@ func codexAccountIDFromToken(token string) (string, error) {
 // provider has opted into the global HTTP proxy and a proxy URL is configured.
 // Returns nil when no override is required so callers fall back to the
 // default transport.
-func (s *Service) proxyHTTPClientForProvider(ctx context.Context, provider sqlc.Provider, timeout time.Duration) *http.Client {
+func (s *Service) proxyHTTPClientForProvider(ctx context.Context, provider dbsqlc.Provider, timeout time.Duration) *http.Client {
 	if s.appSettings == nil || !providerOptedIntoProxy(provider) {
 		return nil
 	}
@@ -308,7 +308,7 @@ func (s *Service) proxyHTTPClientForProvider(ctx context.Context, provider sqlc.
 
 // providerOptedIntoProxy mirrors providers.ProviderUsesProxy without creating
 // an import cycle (providers already depends on models).
-func providerOptedIntoProxy(provider sqlc.Provider) bool {
+func providerOptedIntoProxy(provider dbsqlc.Provider) bool {
 	if len(provider.Metadata) == 0 {
 		return false
 	}

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	memohcopilot "github.com/memohai/memoh/internal/copilot"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
 
@@ -26,7 +26,7 @@ type ModelCredentials struct {
 	HTTPClient *http.Client
 }
 
-func SupportsOpenAICodexOAuth(provider sqlc.Provider) bool {
+func SupportsOpenAICodexOAuth(provider dbsqlc.Provider) bool {
 	return supportsOAuth(provider)
 }
 
@@ -34,7 +34,7 @@ func SupportsOpenAICodexOAuth(provider sqlc.Provider) bool {
 // HTTP proxy when the provider has opted in and a proxy URL is configured.
 // Returns nil when no proxy override is needed; callers should then build a
 // default client.
-func (s *Service) ResolveProviderHTTPClient(ctx context.Context, provider sqlc.Provider) *http.Client {
+func (s *Service) ResolveProviderHTTPClient(ctx context.Context, provider dbsqlc.Provider) *http.Client {
 	if !ProviderUsesProxy(provider) || s.appSettings == nil {
 		return nil
 	}
@@ -45,7 +45,7 @@ func (s *Service) ResolveProviderHTTPClient(ctx context.Context, provider sqlc.P
 	return models.NewProviderHTTPClientWithProxy(0, proxyURL)
 }
 
-func (s *Service) ResolveModelCredentials(ctx context.Context, provider sqlc.Provider) (ModelCredentials, error) {
+func (s *Service) ResolveModelCredentials(ctx context.Context, provider dbsqlc.Provider) (ModelCredentials, error) {
 	httpClient := s.ResolveProviderHTTPClient(ctx, provider)
 
 	switch models.ClientType(provider.ClientType) {

@@ -13,12 +13,10 @@ import (
 
 	"github.com/memohai/memoh/internal/bind"
 	"github.com/memohai/memoh/internal/channel/identities"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
-func setupBindConsumeIntegrationTest(t *testing.T) (dbstore.Queries, *identities.Service, *bind.Service, func()) {
+func setupBindConsumeIntegrationTest(t *testing.T) (*dbsqlc.Queries, *identities.Service, *bind.Service, func()) {
 	t.Helper()
 
 	dsn := os.Getenv("TEST_POSTGRES_DSN")
@@ -36,15 +34,15 @@ func setupBindConsumeIntegrationTest(t *testing.T) (dbstore.Queries, *identities
 		t.Skipf("skip integration test: database ping failed: %v", err)
 	}
 
-	queries := postgresstore.NewQueries(sqlc.New(pool))
+	queries := dbsqlc.New(pool)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	channelIdentitySvc := identities.NewService(logger, queries)
 	bindSvc := bind.NewService(logger, pool, queries)
 	return queries, channelIdentitySvc, bindSvc, func() { pool.Close() }
 }
 
-func createUserForBind(ctx context.Context, queries dbstore.Queries) (string, error) {
-	row, err := queries.CreateUser(ctx, sqlc.CreateUserParams{
+func createUserForBind(ctx context.Context, queries *dbsqlc.Queries) (string, error) {
+	row, err := queries.CreateUser(ctx, dbsqlc.CreateUserParams{
 		IsActive: true,
 		Metadata: []byte("{}"),
 	})

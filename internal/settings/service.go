@@ -14,14 +14,13 @@ import (
 
 	"github.com/memohai/memoh/internal/acl"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	netctl "github.com/memohai/memoh/internal/network"
 	tzutil "github.com/memohai/memoh/internal/timezone"
 )
 
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	acl     *acl.Service
 	network *netctl.Service
 	logger  *slog.Logger
@@ -32,7 +31,7 @@ var (
 	ErrInvalidModelRef  = errors.New("invalid model reference")
 )
 
-func NewService(log *slog.Logger, queries dbstore.Queries, aclService *acl.Service, networkService *netctl.Service) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, aclService *acl.Service, networkService *netctl.Service) *Service {
 	return &Service{
 		queries: queries,
 		acl:     aclService,
@@ -225,7 +224,7 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	if err != nil {
 		return Settings{}, rollbackNetworkChange(fmt.Errorf("marshal network config: %w", err))
 	}
-	updated, err := s.queries.UpsertBotSettings(ctx, sqlc.UpsertBotSettingsParams{
+	updated, err := s.queries.UpsertBotSettings(ctx, dbsqlc.UpsertBotSettingsParams{
 		ID:                     pgID,
 		Timezone:               timezoneValue,
 		Language:               current.Language,
@@ -328,7 +327,7 @@ func isValidReasoningEffort(effort string) bool {
 	}
 }
 
-func normalizeBotSettingsReadRow(row sqlc.GetSettingsByBotIDRow) Settings {
+func normalizeBotSettingsReadRow(row dbsqlc.GetSettingsByBotIDRow) Settings {
 	return normalizeBotSettingsFields(
 		row.Language,
 		row.ReasoningEnabled,
@@ -358,7 +357,7 @@ func normalizeBotSettingsReadRow(row sqlc.GetSettingsByBotIDRow) Settings {
 	)
 }
 
-func normalizeBotSettingsWriteRow(row sqlc.UpsertBotSettingsRow) Settings {
+func normalizeBotSettingsWriteRow(row dbsqlc.UpsertBotSettingsRow) Settings {
 	return normalizeBotSettingsFields(
 		row.Language,
 		row.ReasoningEnabled,
@@ -516,7 +515,7 @@ func cloneSettingsMap(in map[string]any) map[string]any {
 	return out
 }
 
-func settingsOverlayConfigFromRow(row sqlc.GetBotOverlayConfigRow) netctl.BotOverlayConfig {
+func settingsOverlayConfigFromRow(row dbsqlc.GetBotOverlayConfigRow) netctl.BotOverlayConfig {
 	return netctl.BotOverlayConfig{
 		Enabled:  row.OverlayEnabled,
 		Provider: strings.TrimSpace(row.OverlayProvider),

@@ -3,13 +3,13 @@ package settings
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 func TestNormalizeBotSettingsReadRow_ShowToolCallsInIMDefault(t *testing.T) {
 	t.Parallel()
 
-	row := sqlc.GetSettingsByBotIDRow{
+	row := dbsqlc.GetSettingsByBotIDRow{
 		Language:            "en",
 		ReasoningEnabled:    false,
 		ReasoningEffort:     "medium",
@@ -29,7 +29,7 @@ func TestNormalizeBotSettingsReadRow_ShowToolCallsInIMDefault(t *testing.T) {
 func TestNormalizeBotSettingsReadRow_ShowToolCallsInIMPropagates(t *testing.T) {
 	t.Parallel()
 
-	row := sqlc.GetSettingsByBotIDRow{
+	row := dbsqlc.GetSettingsByBotIDRow{
 		Language:          "en",
 		ReasoningEffort:   "medium",
 		HeartbeatInterval: 60,

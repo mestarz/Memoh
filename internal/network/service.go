@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	ctr "github.com/memohai/memoh/internal/container"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 type statusRuntime interface {
@@ -20,7 +20,7 @@ type statusRuntime interface {
 var ErrWorkspaceContainerMissing = errors.New("workspace container is not created")
 
 type Service struct {
-	queries          dbstore.Queries
+	queries          *dbsqlc.Queries
 	registry         *Registry
 	runtime          statusRuntime
 	controller       Controller
@@ -30,7 +30,7 @@ type Service struct {
 	logger           *slog.Logger
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, registry *Registry, runtime statusRuntime, cniBinDir, cniConfDir, networkStateRoot string) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, registry *Registry, runtime statusRuntime, cniBinDir, cniConfDir, networkStateRoot string) *Service {
 	return &Service{
 		queries:          queries,
 		registry:         registry,

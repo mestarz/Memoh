@@ -7,17 +7,16 @@ import (
 	"log/slog"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // OutboxService manages the email outbox audit log.
 type OutboxService struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
-func NewOutboxService(log *slog.Logger, queries dbstore.Queries) *OutboxService {
+func NewOutboxService(log *slog.Logger, queries *dbsqlc.Queries) *OutboxService {
 	return &OutboxService{
 		queries: queries,
 		logger:  log.With(slog.String("service", "email_outbox")),
@@ -41,7 +40,7 @@ func (s *OutboxService) Create(ctx context.Context, providerID, botID string, ms
 		bodyText = ""
 	}
 
-	row, err := s.queries.CreateEmailOutbox(ctx, sqlc.CreateEmailOutboxParams{
+	row, err := s.queries.CreateEmailOutbox(ctx, dbsqlc.CreateEmailOutboxParams{
 		ProviderID:  pgProviderID,
 		BotID:       pgBotID,
 		FromAddress: fromAddr,
@@ -64,7 +63,7 @@ func (s *OutboxService) MarkSent(ctx context.Context, id, messageID string) erro
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateEmailOutboxSent(ctx, sqlc.UpdateEmailOutboxSentParams{
+	return s.queries.UpdateEmailOutboxSent(ctx, dbsqlc.UpdateEmailOutboxSentParams{
 		ID:        pgID,
 		MessageID: messageID,
 	})
@@ -76,7 +75,7 @@ func (s *OutboxService) MarkFailed(ctx context.Context, id, errMsg string) error
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateEmailOutboxFailed(ctx, sqlc.UpdateEmailOutboxFailedParams{
+	return s.queries.UpdateEmailOutboxFailed(ctx, dbsqlc.UpdateEmailOutboxFailedParams{
 		ID:    pgID,
 		Error: errMsg,
 	})
@@ -99,7 +98,7 @@ func (s *OutboxService) ListByBot(ctx context.Context, botID string, limit, offs
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.queries.ListEmailOutboxByBot(ctx, sqlc.ListEmailOutboxByBotParams{
+	rows, err := s.queries.ListEmailOutboxByBot(ctx, dbsqlc.ListEmailOutboxByBotParams{
 		BotID: pgBotID,
 		Lim:   limit,
 		Off:   offset,
@@ -118,7 +117,7 @@ func (s *OutboxService) ListByBot(ctx context.Context, botID string, limit, offs
 	return items, count, nil
 }
 
-func (*OutboxService) toOutboxResponse(row sqlc.EmailOutbox) OutboxItemResponse {
+func (*OutboxService) toOutboxResponse(row dbsqlc.EmailOutbox) OutboxItemResponse {
 	var to []string
 	_ = json.Unmarshal(row.ToAddresses, &to)
 	var attachments []any

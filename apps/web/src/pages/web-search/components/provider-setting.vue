@@ -58,7 +58,10 @@
           <GoogleSettings v-model="configProxy" />
         </template>
         <template v-else-if="form.values.provider === 'tavily'">
-          <TavilySettings v-model="configProxy" :provider-id="curProviderId" />
+          <TavilySettings
+            v-model="configProxy"
+            :provider-id="curProviderId"
+          />
         </template>
         <template v-else-if="form.values.provider === 'sogou'">
           <SogouSettings v-model="configProxy" />
