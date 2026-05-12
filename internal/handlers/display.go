@@ -63,7 +63,7 @@ type displayRuntimeProbe struct {
 
 // GetDisplayInfo godoc
 // @Summary Check workspace display availability for bot container
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} displayInfoResponse
 // @Failure 404 {object} ErrorResponse
@@ -121,7 +121,7 @@ func (h *WorkspaceContainerHandler) GetDisplayInfo(c echo.Context) error {
 
 // HandleDisplayWebRTCOffer godoc
 // @Summary Create a WebRTC answer for bot workspace display
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body displayWebRTCOfferRequest true "WebRTC offer payload"
 // @Success 200 {object} displayWebRTCOfferResponse
@@ -170,7 +170,7 @@ func (h *WorkspaceContainerHandler) HandleDisplayWebRTCOffer(c echo.Context) err
 
 // ListDisplaySessions godoc
 // @Summary List active workspace display WebRTC sessions
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} displaySessionListResponse
 // @Failure 404 {object} ErrorResponse
@@ -190,7 +190,7 @@ func (h *WorkspaceContainerHandler) ListDisplaySessions(c echo.Context) error {
 
 // CloseDisplaySession godoc
 // @Summary Close a workspace display WebRTC session
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param session_id path string true "Display session ID"
 // @Success 204
@@ -223,7 +223,7 @@ type displayPrepareStreamEvent struct {
 // PrepareDisplay godoc
 // @Summary Prepare workspace display dependencies
 // @Description Installs the workspace desktop/VNC/browser packages when needed, starts the display server, and launches the browser.
-// @Tags containerd
+// @Tags workspace
 // @Produce text/event-stream
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {string} string "SSE stream of display preparation events"

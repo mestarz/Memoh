@@ -103,10 +103,10 @@ func newBotsDeleteCommand(ctx *cliContext) *cobra.Command {
 	return cmd
 }
 
-// localClient returns a tui.Client targeting the desktop-managed local
-// server. When --server is supplied it falls back to a token-less
-// remote client (advanced override; assumes the caller knows the
-// remote auth flow).
+// localClient returns a tui.Client targeting the local memoh-server.
+// When --server is supplied it falls back to a token-less remote
+// client (advanced override; assumes the caller knows the remote
+// auth flow).
 func localClient(ctx context.Context, cli *cliContext) (*tui.Client, error) {
 	if cli.server != "" {
 		return tui.NewClient(cli.state.ServerURL, ""), nil

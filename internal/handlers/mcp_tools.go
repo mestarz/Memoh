@@ -29,7 +29,7 @@ func (h *WorkspaceContainerHandler) SetToolGatewayService(service *mcpgw.ToolGat
 // HandleMCPTools godoc
 // @Summary Unified MCP tools gateway
 // @Description MCP endpoint for tool discovery and invocation.
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body object true "JSON-RPC request"
 // @Success 200 {object} object "JSON-RPC response: {jsonrpc,id,result|error}"

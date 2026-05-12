@@ -2,10 +2,8 @@ import { client } from '@memohai/sdk/client'
 
 export interface SetupApiClientOptions {
   baseUrl?: string
-  // Called after the access token is cleared on a 401. Hosts (web / desktop
-  // chat window / desktop settings window) decide what to do — usually a
-  // router redirect to the login screen, but desktop satellite windows may
-  // prefer to close themselves and let the chat window take over auth.
+  // Called after the access token is cleared on a 401. Hosts (e.g. web)
+  // decide what to do — usually a router redirect to the login screen.
   onUnauthorized?: () => void
 }
 

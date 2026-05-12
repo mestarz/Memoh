@@ -37,7 +37,7 @@ type terminalControlMessage struct {
 
 // GetTerminalInfo godoc
 // @Summary Check terminal availability for bot container
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} terminalInfoResponse
 // @Failure 404 {object} ErrorResponse
@@ -67,7 +67,7 @@ func (h *WorkspaceContainerHandler) GetTerminalInfo(c echo.Context) error {
 
 // HandleTerminalWS godoc
 // @Summary Interactive WebSocket terminal for bot container
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param cols query int false "Initial terminal columns" default(80)
 // @Param rows query int false "Initial terminal rows" default(24)

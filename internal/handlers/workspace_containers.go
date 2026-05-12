@@ -256,7 +256,7 @@ func (h *WorkspaceContainerHandler) Register(e *echo.Echo) {
 
 // CreateContainer godoc
 // @Summary Create and start MCP container for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body CreateContainerRequest true "Create container payload"
 // @Success 200 {object} CreateContainerResponse "SSE stream of container creation events"
@@ -450,7 +450,7 @@ func (h *WorkspaceContainerHandler) CreateContainer(c echo.Context) error {
 
 // GetContainer godoc
 // @Summary Get container info for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} GetContainerResponse
 // @Failure 404 {object} ErrorResponse
@@ -486,7 +486,7 @@ func (h *WorkspaceContainerHandler) GetContainer(c echo.Context) error {
 
 // GetContainerMetrics godoc
 // @Summary Get current container metrics for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} GetContainerMetricsResponse
 // @Failure 500 {object} ErrorResponse
@@ -526,7 +526,7 @@ func (h *WorkspaceContainerHandler) GetContainerMetrics(c echo.Context) error {
 
 // DeleteContainer godoc
 // @Summary Delete MCP container for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param preserve_data query bool false "Export /data before deletion"
 // @Success 204
@@ -547,7 +547,7 @@ func (h *WorkspaceContainerHandler) DeleteContainer(c echo.Context) error {
 
 // StartContainer godoc
 // @Summary Start container task for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} object
 // @Failure 404 {object} ErrorResponse
@@ -569,7 +569,7 @@ func (h *WorkspaceContainerHandler) StartContainer(c echo.Context) error {
 
 // StopContainer godoc
 // @Summary Stop container task for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} object
 // @Failure 404 {object} ErrorResponse
@@ -591,7 +591,7 @@ func (h *WorkspaceContainerHandler) StopContainer(c echo.Context) error {
 
 // CreateSnapshot godoc
 // @Summary Create container snapshot for bot
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body CreateSnapshotRequest true "Create snapshot payload"
 // @Success 200 {object} CreateSnapshotResponse
@@ -631,7 +631,7 @@ func (h *WorkspaceContainerHandler) CreateSnapshot(c echo.Context) error {
 
 // ListSnapshots godoc
 // @Summary List snapshots
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param snapshotter query string false "Snapshotter name"
 // @Success 200 {object} ListSnapshotsResponse
@@ -759,7 +759,7 @@ func (h *WorkspaceContainerHandler) ListSnapshots(c echo.Context) error {
 
 // RollbackSnapshot godoc
 // @Summary Rollback container to a previous snapshot version
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body RollbackRequest true "Rollback payload"
 // @Success 200 {object} object
@@ -791,7 +791,7 @@ func (h *WorkspaceContainerHandler) RollbackSnapshot(c echo.Context) error {
 
 // ExportContainerData godoc
 // @Summary Export container /data as a tar.gz archive
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Produce application/gzip
 // @Success 200 {file} file
@@ -821,7 +821,7 @@ func (h *WorkspaceContainerHandler) ExportContainerData(c echo.Context) error {
 
 // ImportContainerData godoc
 // @Summary Import a tar.gz archive into container /data
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Accept multipart/form-data
 // @Param file formData file true "tar.gz archive"
@@ -856,7 +856,7 @@ func (h *WorkspaceContainerHandler) ImportContainerData(c echo.Context) error {
 
 // RestorePreservedData godoc
 // @Summary Restore previously preserved data into container
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} object
 // @Failure 404 {object} ErrorResponse

@@ -1,11 +1,10 @@
-// Package local resolves the on-disk layout shared between the Memoh
-// desktop Electron shell (apps/desktop) and the bundled CLI binary
-// (cmd/memoh). The two cooperate purely through files under the same
-// userData directory: config.toml, local-server.pid.json, qdrant/, etc.
+// Package local resolves the on-disk layout shared between the local
+// memoh-server (host process) and the bundled CLI binary (cmd/memoh).
+// The two cooperate purely through files under the same userData
+// directory: config.toml, local-server.pid.json, qdrant/, etc.
 //
-// Path rules mirror Electron's app.getPath('userData') with productName
-// pinned to "Memoh" (see apps/desktop/package.json and the call to
-// app.setName('Memoh') in apps/desktop/src/main/index.ts).
+// Path rules use a productName of "Memoh" so the layout is stable
+// across the host process and any companion CLI invocations.
 package local
 
 import (
@@ -18,17 +17,17 @@ import (
 
 const productName = "Memoh"
 
-// LocalServerPort is the fixed port the desktop-managed server binds to.
-// Mirrors LOCAL_SERVER_PORT in apps/desktop/src/main/local-server.ts.
+// LocalServerPort is the fixed port the local memoh-server binds to.
 const LocalServerPort = 18731
 
-// LocalServerBaseURL is the canonical http endpoint of the
-// desktop-managed server. CLI clients address it directly.
+// LocalServerBaseURL is the canonical http endpoint of the local
+// memoh-server. CLI clients address it directly.
 const LocalServerBaseURL = "http://127.0.0.1:18731"
 
-// UserDataDir returns the cross-platform Electron-equivalent userData
-// directory. The directory is not created here; callers should expect
-// it to be missing on a fresh machine.
+// UserDataDir returns the cross-platform per-user data directory used
+// by Memoh (Linux: ~/.config/Memoh; macOS: ~/Library/Application Support/Memoh;
+// Windows: %APPDATA%\Memoh). The directory is not created here;
+// callers should expect it to be missing on a fresh machine.
 func UserDataDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -63,9 +62,9 @@ func MustUserDataDir() string {
 	return dir
 }
 
-// ConfigPath returns the path where a packaged Memoh.app writes
-// config.toml. Use ResolveConfigPath when you need to read it — that
-// helper also recognizes the dev-mode location.
+// ConfigPath returns the path where Memoh writes config.toml. Use
+// ResolveConfigPath when you need to read it — that helper also
+// recognizes the dev-mode location.
 func ConfigPath() (string, error) {
 	dir, err := UserDataDir()
 	if err != nil {
@@ -74,10 +73,8 @@ func ConfigPath() (string, error) {
 	return filepath.Join(dir, "config.toml"), nil
 }
 
-// devConfigPath mirrors `desktopServerWorkDir()` in
-// apps/desktop/src/main/paths.ts: in dev (electron-vite) the desktop
-// renders config.toml into userData/local-server/config.toml so it
-// can sit next to the freshly-built dev server binary.
+// devConfigPath returns the dev-mode config.toml location, sitting next
+// to a freshly-built dev server binary under userData/local-server/.
 func devConfigPath() (string, error) {
 	dir, err := UserDataDir()
 	if err != nil {
@@ -89,7 +86,7 @@ func devConfigPath() (string, error) {
 // ResolveConfigPath returns whichever config.toml actually exists on
 // disk — the packaged location takes precedence, falling back to the
 // dev location. Returns an error with both candidates listed when
-// neither file is present so users know to launch the desktop once.
+// neither file is present so users know to initialize a config.
 func ResolveConfigPath() (string, error) {
 	packaged, err := ConfigPath()
 	if err != nil {
@@ -105,10 +102,10 @@ func ResolveConfigPath() (string, error) {
 	if _, statErr := os.Stat(dev); statErr == nil {
 		return dev, nil
 	}
-	return "", fmt.Errorf("config.toml not found in either %q or %q; open Memoh.app once to initialize", packaged, dev)
+	return "", fmt.Errorf("config.toml not found in either %q or %q; create one to initialize", packaged, dev)
 }
 
-// PidPath returns the path to the desktop-managed server's pid file.
+// PidPath returns the path to the local memoh-server's pid file.
 func PidPath() (string, error) {
 	dir, err := UserDataDir()
 	if err != nil {
@@ -117,7 +114,7 @@ func PidPath() (string, error) {
 	return filepath.Join(dir, "local-server.pid.json"), nil
 }
 
-// LogPath returns the path to the desktop-managed server's log file.
+// LogPath returns the path to the local memoh-server's log file.
 func LogPath() (string, error) {
 	dir, err := UserDataDir()
 	if err != nil {
@@ -135,7 +132,7 @@ func TokenCachePath() (string, error) {
 	return filepath.Join(dir, "cli-token.json"), nil
 }
 
-// PrefsPath returns the path used to persist CLI/desktop preferences
+// PrefsPath returns the path used to persist CLI preferences
 // (e.g. dontAskAgain for the install-CLI prompt).
 func PrefsPath() (string, error) {
 	dir, err := UserDataDir()
@@ -165,12 +162,12 @@ func QdrantPortsPath() (string, error) {
 }
 
 // BundledServerBinary returns the absolute path to the memoh-server
-// binary shipped alongside the CLI inside the desktop app bundle.
+// binary shipped alongside the CLI inside a packaged install layout.
 //
-// Layout inside a packaged Memoh.app on macOS:
+// Layout for a packaged install:
 //
-//	Memoh.app/Contents/Resources/cli/memoh        <- the CLI itself
-//	Memoh.app/Contents/Resources/server/memoh-server
+//	<resources>/cli/memoh        <- the CLI itself
+//	<resources>/server/memoh-server
 //
 // Layout in dev (running `go run ./cmd/memoh`): no bundled binary; the
 // returned error gives callers a chance to fail gracefully with a
@@ -190,7 +187,7 @@ func BundledServerBinary() (string, error) {
 	if _, err := os.Stat(candidate); err == nil {
 		return candidate, nil
 	}
-	return "", errors.New("bundled memoh-server binary not found; CLI must run from a packaged Memoh app")
+	return "", errors.New("bundled memoh-server binary not found; CLI must run from a packaged install")
 }
 
 func serverBinaryName() string {

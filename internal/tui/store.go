@@ -11,14 +11,13 @@ import (
 	"github.com/memohai/memoh/internal/tui/local"
 )
 
-// DefaultProdServerURL is the local desktop-managed server endpoint.
-// Mirrors LOCAL_SERVER_BASE_URL in apps/desktop/src/main/local-server.ts
-// and local.LocalServerBaseURL.
+// DefaultProdServerURL is the local memoh-server endpoint.
+// Mirrors local.LocalServerBaseURL.
 const DefaultProdServerURL = local.LocalServerBaseURL
 
 // State is the persisted CLI preferences. Tokens are NOT persisted
-// here — the desktop CLI obtains them via local.EnsureToken which
-// caches at userData/cli-token.json with stricter file permissions.
+// here — the CLI obtains them via local.EnsureToken which caches
+// at userData/cli-token.json with stricter file permissions.
 type State struct {
 	ServerURL string `json:"server_url"`
 }

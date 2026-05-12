@@ -23,7 +23,7 @@ func newRootCommand() *cobra.Command {
 
 	rootCmd := &cobra.Command{
 		Use:   "memoh",
-		Short: "Memoh desktop companion CLI",
+		Short: "Memoh local-server companion CLI",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runTUI(cmd.Context(), ctx)
 		},

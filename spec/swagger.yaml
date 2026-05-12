@@ -3860,7 +3860,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Delete MCP container for bot
       tags:
-      - containerd
+      - workspace
     get:
       parameters:
       - description: Bot ID
@@ -3883,7 +3883,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Get container info for bot
       tags:
-      - containerd
+      - workspace
     post:
       parameters:
       - description: Bot ID
@@ -3912,7 +3912,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create and start MCP container for bot
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/data/export:
     post:
       parameters:
@@ -3934,7 +3934,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Export container /data as a tar.gz archive
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/data/import:
     post:
       consumes:
@@ -3965,7 +3965,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Import a tar.gz archive into container /data
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/data/restore:
     post:
       parameters:
@@ -3989,7 +3989,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Restore previously preserved data into container
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/display:
     get:
       parameters:
@@ -4009,7 +4009,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Check workspace display availability for bot container
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/display/prepare:
     post:
       description: Installs the workspace desktop/VNC/browser packages when needed,
@@ -4033,7 +4033,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Prepare workspace display dependencies
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/display/sessions:
     get:
       parameters:
@@ -4053,7 +4053,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: List active workspace display WebRTC sessions
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/display/sessions/{session_id}:
     delete:
       parameters:
@@ -4076,7 +4076,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Close a workspace display WebRTC session
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/display/webrtc/offer:
     post:
       parameters:
@@ -4106,7 +4106,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create a WebRTC answer for bot workspace display
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs:
     get:
       description: Returns metadata about a file or directory at the given container
@@ -4145,7 +4145,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Get file or directory info
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/delete:
     post:
       description: Deletes a file or directory at the given container path
@@ -4184,7 +4184,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Delete a file or directory
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/download:
     get:
       description: Downloads a file from the container with appropriate Content-Type
@@ -4220,7 +4220,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Download a file as binary stream
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/list:
     get:
       description: Lists files and directories at the given container path
@@ -4254,7 +4254,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: List directory contents
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/mkdir:
     post:
       description: Creates a directory (and parents) at the given container path
@@ -4289,7 +4289,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create a directory
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/read:
     get:
       description: Reads the content of a file and returns it as a JSON string
@@ -4323,7 +4323,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Read file content as text
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/rename:
     post:
       description: Renames or moves a file/directory from oldPath to newPath
@@ -4362,7 +4362,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Rename or move a file/directory
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/upload:
     post:
       consumes:
@@ -4403,7 +4403,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Upload a file via multipart form
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/fs/write:
     post:
       description: Creates or overwrites a file with the provided text content
@@ -4438,7 +4438,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Write text content to a file
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/metrics:
     get:
       parameters:
@@ -4458,7 +4458,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Get current container metrics for bot
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/skills:
     delete:
       parameters:
@@ -4492,7 +4492,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Delete Memoh-managed skills
       tags:
-      - containerd
+      - workspace
     get:
       parameters:
       - description: Bot ID
@@ -4519,7 +4519,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: List skills from the bot container
       tags:
-      - containerd
+      - workspace
     post:
       parameters:
       - description: Bot ID
@@ -4552,7 +4552,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Upload skills into Memoh-managed directory
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/skills/actions:
     post:
       parameters:
@@ -4586,7 +4586,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Apply an action to a discovered or managed skill source
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/snapshots:
     get:
       parameters:
@@ -4610,7 +4610,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: List snapshots
       tags:
-      - containerd
+      - workspace
     post:
       parameters:
       - description: Bot ID
@@ -4643,7 +4643,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create container snapshot for bot
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/snapshots/rollback:
     post:
       parameters:
@@ -4673,7 +4673,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Rollback container to a previous snapshot version
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/start:
     post:
       parameters:
@@ -4697,7 +4697,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Start container task for bot
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/stop:
     post:
       parameters:
@@ -4721,7 +4721,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Stop container task for bot
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/terminal:
     get:
       parameters:
@@ -4741,7 +4741,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Check terminal availability for bot container
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/container/terminal/ws:
     get:
       parameters:
@@ -4777,7 +4777,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Interactive WebSocket terminal for bot container
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/email-bindings:
     get:
       parameters:
@@ -5240,7 +5240,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create MCP stdio proxy
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/mcp-stdio/{connection_id}:
     post:
       description: Proxies MCP JSON-RPC requests to a stdio MCP process in the container.
@@ -5280,7 +5280,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: MCP stdio proxy (JSON-RPC)
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/mcp/{id}:
     delete:
       description: Delete a MCP connection by ID
@@ -6865,7 +6865,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Unified MCP tools gateway
       tags:
-      - containerd
+      - workspace
   /bots/{bot_id}/tts/render:
     post:
       consumes:

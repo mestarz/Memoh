@@ -128,7 +128,7 @@ func fsHTTPError(err error) *echo.HTTPError {
 // FSStat godoc
 // @Summary Get file or directory info
 // @Description Returns metadata about a file or directory at the given container path
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param path query string true "Container path"
 // @Success 200 {object} FSFileInfo
@@ -176,7 +176,7 @@ func (h *WorkspaceContainerHandler) FSStat(c echo.Context) error {
 // FSList godoc
 // @Summary List directory contents
 // @Description Lists files and directories at the given container path
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param path query string true "Container directory path"
 // @Success 200 {object} FSListResponse
@@ -234,7 +234,7 @@ func (h *WorkspaceContainerHandler) FSList(c echo.Context) error {
 // FSRead godoc
 // @Summary Read file content as text
 // @Description Reads the content of a file and returns it as a JSON string
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param path query string true "Container file path"
 // @Success 200 {object} FSReadResponse
@@ -284,7 +284,7 @@ func (h *WorkspaceContainerHandler) FSRead(c echo.Context) error {
 // FSDownload godoc
 // @Summary Download a file as binary stream
 // @Description Downloads a file from the container with appropriate Content-Type
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param path query string true "Container file path"
 // @Produce octet-stream
@@ -343,7 +343,7 @@ func (h *WorkspaceContainerHandler) FSDownload(c echo.Context) error {
 // FSWrite godoc
 // @Summary Write text content to a file
 // @Description Creates or overwrites a file with the provided text content
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body FSWriteRequest true "Write request"
 // @Success 200 {object} fsOpResponse
@@ -385,7 +385,7 @@ func (h *WorkspaceContainerHandler) FSWrite(c echo.Context) error {
 // FSUpload godoc
 // @Summary Upload a file via multipart form
 // @Description Uploads a binary file to the given container path
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param path formData string true "Destination container path"
 // @Param file formData file true "File to upload"
@@ -440,7 +440,7 @@ func (h *WorkspaceContainerHandler) FSUpload(c echo.Context) error {
 // FSMkdir godoc
 // @Summary Create a directory
 // @Description Creates a directory (and parents) at the given container path
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body FSMkdirRequest true "Mkdir request"
 // @Success 200 {object} fsOpResponse
@@ -482,7 +482,7 @@ func (h *WorkspaceContainerHandler) FSMkdir(c echo.Context) error {
 // FSDelete godoc
 // @Summary Delete a file or directory
 // @Description Deletes a file or directory at the given container path
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body FSDeleteRequest true "Delete request"
 // @Success 200 {object} fsOpResponse
@@ -529,7 +529,7 @@ func (h *WorkspaceContainerHandler) FSDelete(c echo.Context) error {
 // FSRename godoc
 // @Summary Rename or move a file/directory
 // @Description Renames or moves a file/directory from oldPath to newPath
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body FSRenameRequest true "Rename request"
 // @Success 200 {object} fsOpResponse

@@ -63,14 +63,14 @@ func NewClient(baseURL, token string) *Client {
 	}
 }
 
-// NewLocalClient builds a Client targeting the desktop-managed local
-// server. It performs (or reuses) a self-login against the [admin]
-// credentials in the desktop userData/config.toml so callers don't
-// need to handle authentication manually.
+// NewLocalClient builds a Client targeting the local memoh-server. It
+// performs (or reuses) a self-login against the [admin] credentials
+// in userData/config.toml so callers don't need to handle
+// authentication manually.
 //
-// Returns an error if the desktop userData layout is unavailable
-// (e.g. desktop has never been launched on this machine, so config.toml
-// is missing). Callers should surface a "open Memoh.app once" message.
+// Returns an error if the userData layout is unavailable (e.g.
+// config.toml is missing). Callers should surface a "create config.toml
+// to initialize" message.
 func NewLocalClient(ctx context.Context) (*Client, error) {
 	configPath, err := local.ResolveConfigPath()
 	if err != nil {

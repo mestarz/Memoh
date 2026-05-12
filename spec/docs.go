@@ -898,7 +898,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Get container info for bot",
                 "parameters": [
@@ -933,7 +933,7 @@ const docTemplate = `{
             },
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Create and start MCP container for bot",
                 "parameters": [
@@ -977,7 +977,7 @@ const docTemplate = `{
             },
             "delete": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Delete MCP container for bot",
                 "parameters": [
@@ -1020,7 +1020,7 @@ const docTemplate = `{
                     "application/gzip"
                 ],
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Export container /data as a tar.gz archive",
                 "parameters": [
@@ -1054,7 +1054,7 @@ const docTemplate = `{
                     "multipart/form-data"
                 ],
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Import a tar.gz archive into container /data",
                 "parameters": [
@@ -1098,7 +1098,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/data/restore": {
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Restore previously preserved data into container",
                 "parameters": [
@@ -1135,7 +1135,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/display": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Check workspace display availability for bot container",
                 "parameters": [
@@ -1170,7 +1170,7 @@ const docTemplate = `{
                     "text/event-stream"
                 ],
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Prepare workspace display dependencies",
                 "parameters": [
@@ -1201,7 +1201,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/display/sessions": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "List active workspace display WebRTC sessions",
                 "parameters": [
@@ -1232,7 +1232,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/display/sessions/{session_id}": {
             "delete": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Close a workspace display WebRTC session",
                 "parameters": [
@@ -1267,7 +1267,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/display/webrtc/offer": {
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Create a WebRTC answer for bot workspace display",
                 "parameters": [
@@ -1314,7 +1314,7 @@ const docTemplate = `{
             "get": {
                 "description": "Returns metadata about a file or directory at the given container path",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Get file or directory info",
                 "parameters": [
@@ -1371,7 +1371,7 @@ const docTemplate = `{
             "post": {
                 "description": "Deletes a file or directory at the given container path",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Delete a file or directory",
                 "parameters": [
@@ -1433,7 +1433,7 @@ const docTemplate = `{
                     "application/octet-stream"
                 ],
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Download a file as binary stream",
                 "parameters": [
@@ -1484,7 +1484,7 @@ const docTemplate = `{
             "get": {
                 "description": "Lists files and directories at the given container path",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "List directory contents",
                 "parameters": [
@@ -1535,7 +1535,7 @@ const docTemplate = `{
             "post": {
                 "description": "Creates a directory (and parents) at the given container path",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Create a directory",
                 "parameters": [
@@ -1588,7 +1588,7 @@ const docTemplate = `{
             "get": {
                 "description": "Reads the content of a file and returns it as a JSON string",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Read file content as text",
                 "parameters": [
@@ -1639,7 +1639,7 @@ const docTemplate = `{
             "post": {
                 "description": "Renames or moves a file/directory from oldPath to newPath",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Rename or move a file/directory",
                 "parameters": [
@@ -1701,7 +1701,7 @@ const docTemplate = `{
                     "multipart/form-data"
                 ],
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Upload a file via multipart form",
                 "parameters": [
@@ -1759,7 +1759,7 @@ const docTemplate = `{
             "post": {
                 "description": "Creates or overwrites a file with the provided text content",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Write text content to a file",
                 "parameters": [
@@ -1811,7 +1811,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/metrics": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Get current container metrics for bot",
                 "parameters": [
@@ -1842,7 +1842,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/skills": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "List skills from the bot container",
                 "parameters": [
@@ -1883,7 +1883,7 @@ const docTemplate = `{
             },
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Upload skills into Memoh-managed directory",
                 "parameters": [
@@ -1933,7 +1933,7 @@ const docTemplate = `{
             },
             "delete": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Delete Memoh-managed skills",
                 "parameters": [
@@ -1985,7 +1985,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/skills/actions": {
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Apply an action to a discovered or managed skill source",
                 "parameters": [
@@ -2037,7 +2037,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/snapshots": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "List snapshots",
                 "parameters": [
@@ -2072,7 +2072,7 @@ const docTemplate = `{
             },
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Create container snapshot for bot",
                 "parameters": [
@@ -2124,7 +2124,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/snapshots/rollback": {
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Rollback container to a previous snapshot version",
                 "parameters": [
@@ -2170,7 +2170,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/start": {
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Start container task for bot",
                 "parameters": [
@@ -2207,7 +2207,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/stop": {
             "post": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Stop container task for bot",
                 "parameters": [
@@ -2244,7 +2244,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/terminal": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Check terminal availability for bot container",
                 "parameters": [
@@ -2275,7 +2275,7 @@ const docTemplate = `{
         "/bots/{bot_id}/container/terminal/ws": {
             "get": {
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Interactive WebSocket terminal for bot container",
                 "parameters": [
@@ -2971,7 +2971,7 @@ const docTemplate = `{
             "post": {
                 "description": "Start a stdio MCP process in the bot container and expose it as MCP HTTP endpoint.",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Create MCP stdio proxy",
                 "parameters": [
@@ -3024,7 +3024,7 @@ const docTemplate = `{
             "post": {
                 "description": "Proxies MCP JSON-RPC requests to a stdio MCP process in the container.",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "MCP stdio proxy (JSON-RPC)",
                 "parameters": [
@@ -5397,7 +5397,7 @@ const docTemplate = `{
             "post": {
                 "description": "MCP endpoint for tool discovery and invocation.",
                 "tags": [
-                    "containerd"
+                    "workspace"
                 ],
                 "summary": "Unified MCP tools gateway",
                 "parameters": [

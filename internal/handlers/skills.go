@@ -50,7 +50,7 @@ type skillsOpResponse struct {
 
 // ListSkills godoc
 // @Summary List skills from the bot container
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Success 200 {object} SkillsResponse
 // @Failure 400 {object} ErrorResponse
@@ -72,7 +72,7 @@ func (h *WorkspaceContainerHandler) ListSkills(c echo.Context) error {
 
 // UpsertSkills godoc
 // @Summary Upload skills into Memoh-managed directory
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body SkillsUpsertRequest true "Skills payload"
 // @Success 200 {object} skillsOpResponse
@@ -120,7 +120,7 @@ func (h *WorkspaceContainerHandler) UpsertSkills(c echo.Context) error {
 
 // DeleteSkills godoc
 // @Summary Delete Memoh-managed skills
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body SkillsDeleteRequest true "Delete skills payload"
 // @Success 200 {object} skillsOpResponse
@@ -167,7 +167,7 @@ func (h *WorkspaceContainerHandler) DeleteSkills(c echo.Context) error {
 
 // ApplySkillAction godoc
 // @Summary Apply an action to a discovered or managed skill source
-// @Tags containerd
+// @Tags workspace
 // @Param bot_id path string true "Bot ID"
 // @Param payload body SkillsActionRequest true "Skill action payload"
 // @Success 200 {object} skillsOpResponse

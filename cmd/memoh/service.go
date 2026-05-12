@@ -12,8 +12,8 @@ import (
 )
 
 // newServiceCommands returns the lifecycle commands that operate on
-// the desktop-managed local memoh-server process. They never reach for
-// docker compose; everything is process-level (pid file + spawn).
+// the local memoh-server process. They never reach for docker
+// compose; everything is process-level (pid file + spawn).
 func newServiceCommands(_ *cliContext) []*cobra.Command {
 	return []*cobra.Command{
 		newStartCommand(),
@@ -30,7 +30,7 @@ func newStartCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start the local Memoh server (requires desktop to have run once)",
+		Short: "Start the local Memoh server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			info, err := local.StartServer(local.SpawnOptions{})
