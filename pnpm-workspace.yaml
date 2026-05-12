@@ -3,8 +3,5 @@ packages:
   - 'apps/*'
 
 onlyBuiltDependencies:
-  - sqlite3
-  - electron
-  - electron-winstaller
   - esbuild
   - sharp
