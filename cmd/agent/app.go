@@ -161,7 +161,6 @@ func provideOverlayProviderRegistry(service ctr.Service, cfg config.Config, rc *
 	runtime := netctl.NewContainerRuntimeFromBackend(rc.ContainerBackend, service)
 	if err := netoverlay.RegisterBuiltinProviders(registry, netoverlay.ProviderDeps{
 		SidecarRuntime: service,
-		KubeRuntime:    nil,
 		Runtime:        runtime.Descriptor(),
 		StateRoot:      cfg.Workspace.DataRoot,
 	}); err != nil {
@@ -326,11 +325,11 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 	}
 }
 
-func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.WorkspaceContainerHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, appSettingsSvc *appsettings.Service) *flow.Resolver {
+func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, workspaceHandler *handlers.WorkspaceContainerHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, appSettingsSvc *appsettings.Service) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetAppSettings(appSettingsSvc)
-	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
+	resolver.SetSkillLoader(&skillLoaderAdapter{handler: workspaceHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
 	resolver.SetChannelStore(channelStore)
 	resolver.SetRouteService(routeService)
@@ -434,7 +433,7 @@ func provideChannelRouter(
 	heartbeatService *heartbeat.Service,
 	compactionService *compaction.Service,
 	queries dbstore.Queries,
-	containerdHandler *handlers.WorkspaceContainerHandler,
+	workspaceHandler *handlers.WorkspaceContainerHandler,
 	provider bridge.Provider,
 	pipeline *pipelinepkg.Pipeline,
 	eventStore *pipelinepkg.EventStore,
@@ -479,7 +478,7 @@ func provideChannelRouter(
 		heartbeatService,
 		queries,
 		aclService,
-		&commandSkillLoaderAdapter{handler: containerdHandler},
+		&commandSkillLoaderAdapter{handler: workspaceHandler},
 		&commandContainerFSAdapter{provider: provider},
 	)
 	cmdHandler.SetCompactionService(compactionService, queries)
@@ -510,8 +509,8 @@ func provideWorkspaceContainerHandler(log *slog.Logger, manager *workspace.Manag
 	return handlers.NewWorkspaceContainerHandler(log, manager, cfg.Workspace, rc.ContainerBackend, botService, accountService, policyService)
 }
 
-func provideFederationGateway(log *slog.Logger, containerdHandler *handlers.WorkspaceContainerHandler) *handlers.MCPFederationGateway {
-	return handlers.NewMCPFederationGateway(log, containerdHandler)
+func provideFederationGateway(log *slog.Logger, workspaceHandler *handlers.WorkspaceContainerHandler) *handlers.MCPFederationGateway {
+	return handlers.NewMCPFederationGateway(log, workspaceHandler)
 }
 
 func provideOAuthService(log *slog.Logger, queries dbstore.Queries, cfg config.Config) *mcp.OAuthService {
@@ -527,11 +526,11 @@ func provideOAuthService(log *slog.Logger, queries dbstore.Queries, cfg config.C
 	return mcp.NewOAuthService(log, queries, callbackURL)
 }
 
-func provideToolGatewayService(log *slog.Logger, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, mcpConnService *mcp.ConnectionService, containerdHandler *handlers.WorkspaceContainerHandler) *mcp.ToolGatewayService {
+func provideToolGatewayService(log *slog.Logger, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, mcpConnService *mcp.ConnectionService, workspaceHandler *handlers.WorkspaceContainerHandler) *mcp.ToolGatewayService {
 	fedGateway.SetOAuthService(oauthService)
 	fedSource := mcpfederation.NewSource(log, fedGateway, mcpConnService)
 	svc := mcp.NewToolGatewayService(log, []mcp.ToolSource{fedSource})
-	containerdHandler.SetToolGatewayService(svc)
+	workspaceHandler.SetToolGatewayService(svc)
 	return svc
 }
 
