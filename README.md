@@ -16,21 +16,52 @@
 
 ## 快速开始
 
-本仓库只保留私人部署脚本（**需先装 [Docker](https://www.docker.com/get-started/)**）：
+本仓库部署形态：**memoh-server / web 跑在宿主机（systemd --user 管理），基础设施（PostgreSQL / Qdrant / Sparse / Browser）跑在 Docker，每个机器人 workspace 也跑在 Docker。**
+
+依赖：[Docker](https://www.docker.com/get-started/)、Go 1.24+、Node 24+ / pnpm（开发用）、systemd（用户级）。可选：[mise](https://mise.jdx.dev/)。
 
 ```bash
 git clone https://github.com/mestarz/Memoh.git
 cd Memoh
-cp conf/app.docker.toml config.toml
-# 按需编辑 config.toml
 
-./build.sh          # 构建 server / web 镜像
-./run.sh            # 启动 docker compose 基础设施
-./run.sh -s         # 停止
-./run.sh -r         # 重启 server / web
+# 1. 构建二进制（bin/memoh-server, bin/memoh, data/runtime/bridge）
+./scripts/build.sh
+
+# 2. 检查宿主机依赖（gstreamer / x264enc / docker 等）
+./scripts/check.sh
+
+# 3. 安装 systemd --user 单元并启动
+./scripts/install.sh --enable
+#   - 渲染 ~/.config/systemd/user/memoh-{infra,server,web}.service
+#   - 创建 ~/.config/Memoh/{config.toml, data/, data/run, data/workspaces}
+#   - 启动三个服务
 ```
 
-启动后打开 <http://localhost:8082>。默认账号：`admin` / `admin123`
+启动后打开 <http://localhost:18082>（默认 web 端口）。默认账号：`admin` / `admin123`。
+
+### 常用运维
+
+```bash
+systemctl --user status 'memoh-*.service'                  # 看状态
+systemctl --user restart memoh-server.service              # 重启 server（改完代码 + 重新 build 后）
+systemctl --user restart memoh-infra.service               # 重启基础设施 docker compose
+journalctl --user -u memoh-server -f                       # 看 server 日志
+
+./scripts/install.sh --remove                              # 卸载 systemd 单元（数据保留）
+```
+
+改完 server 代码后的标准流程：
+
+```bash
+./scripts/build.sh && systemctl --user restart memoh-server.service
+```
+
+改完 bridge（`cmd/bridge/`）后还需重启对应 bot workspace 容器，让新 bridge 生效：
+
+```bash
+mise run bridge:build && mise run install-workspace-toolkit
+docker restart workspace-<bot-id>     # 或在 web 上停启该 bot
+```
 
 代码架构与开发约定见 [AGENTS.md](AGENTS.md)。
 

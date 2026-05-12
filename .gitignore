@@ -111,6 +111,16 @@ tmp/
 /bridge
 *.bak
 
+# Go build / test artifacts
+*.test
+coverage.out
+coverage.html
+*.coverprofile
+testdata/fuzz/
+
+# direnv
+.envrc
+
 docs/docs/.vitepress/cache
 .pnpm-store
 
