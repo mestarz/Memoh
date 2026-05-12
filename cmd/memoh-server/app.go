@@ -492,7 +492,7 @@ func provideChannelLifecycleService(channelStore *channel.Store, channelManager 
 }
 
 func provideWorkspaceContainerHandler(log *slog.Logger, manager *workspace.Manager, cfg config.Config, rc *boot.RuntimeConfig, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *handlers.WorkspaceContainerHandler {
-	return handlers.NewWorkspaceContainerHandler(log, manager, cfg.Workspace, rc.ContainerBackend, botService, accountService, policyService)
+	return handlers.NewWorkspaceContainerHandler(log, manager, cfg.Workspace, cfg.Display, rc.ContainerBackend, botService, accountService, policyService)
 }
 
 func provideFederationGateway(log *slog.Logger, workspaceHandler *handlers.WorkspaceContainerHandler) *handlers.MCPFederationGateway {

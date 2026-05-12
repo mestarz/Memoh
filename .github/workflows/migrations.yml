@@ -43,7 +43,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Build
-        run: go build -o memoh-server ./cmd/agent
+        run: go build -o memoh-server ./cmd/memoh-server
 
       - name: Generate config
         run: |

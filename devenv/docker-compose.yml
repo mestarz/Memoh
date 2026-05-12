@@ -3,7 +3,7 @@ name: "memoh-dev"
 # Development infrastructure for Memoh.
 #
 # The Memoh server runs as a local process on the host (use `mise run dev` or
-# `go run ./cmd/agent serve` after `mise run db-up`). This stack only provides
+# `go run ./cmd/memoh-server serve` after `mise run db-up`). This stack only provides
 # the supporting services on alternate ports so dev does not collide with a
 # production deployment on the same machine.
 

@@ -1,7 +1,7 @@
 experimental_monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/web", "cmd/agent"]
+config_roots = ["apps/web", "cmd/memoh-server"]
 
 [tools]
 go = "1.25.6"
@@ -69,13 +69,13 @@ run = """
 #!/bin/bash
 set -e
 docker compose -f devenv/docker-compose.yml up -d
-CONFIG_PATH=devenv/app.dev.toml go run ./cmd/agent migrate up
+CONFIG_PATH=devenv/app.dev.toml go run ./cmd/memoh-server migrate up
 CONFIG_PATH=devenv/app.dev.toml exec air -c .air.toml
 """
 
 [tasks.serve]
 description = "Run server once (no reload) using dev config"
-run = "CONFIG_PATH=devenv/app.dev.toml go run ./cmd/agent serve"
+run = "CONFIG_PATH=devenv/app.dev.toml go run ./cmd/memoh-server serve"
 
 [tasks.web]
 description = "Run the web frontend dev server"
@@ -99,36 +99,31 @@ run = "scripts/db-drop.sh"
 # ---------------------------------------------------------------------------
 
 [tasks."bridge:build"]
-description = "Build the workspace bridge binary into data/runtime/bridge"
-run = """
-#!/bin/bash
-set -e
-mkdir -p data/runtime
-go build -o data/runtime/bridge ./cmd/bridge
-cp -a cmd/bridge/template data/runtime/templates
-echo '✓ bridge + templates ready in data/runtime/'
-"""
+description = "DEPRECATED: use scripts/build.sh --no-server --no-image (kept as alias)"
+run = "./scripts/build.sh --no-server --no-image"
 
 [tasks.install-workspace-toolkit]
 description = "Download node/uv/xvnc into data/runtime/toolkit (bind-mounted into workspaces)"
 run = "./docker/toolkit/install.sh data/runtime/toolkit"
 
 # ---------------------------------------------------------------------------
-# Build / release
+# Build (single source of truth: scripts/build.sh)
 # ---------------------------------------------------------------------------
 
-[tasks.build-embedded-assets]
-description = "Build and stage embedded web assets"
-depends = ["//:pnpm-install"]
-run = "scripts/release.sh --prepare-assets"
+[tasks.build]
+description = "Build everything (server binary + workspace docker image + bridge). See scripts/build.sh --help for options."
+run = "./scripts/build.sh"
 
-[tasks.build-unified]
-description = "Build memoh CLI locally"
-depends = ["//:build-embedded-assets"]
-run = "go build -o bin/memoh ./cmd/memoh"
+[tasks.check]
+description = "Check the host satisfies all build / runtime requirements"
+run = "./scripts/check.sh"
+
+[tasks.install]
+description = "Install systemd --user services (memoh-infra/server/web). Pass --enable to also start them."
+run = "./scripts/install.sh"
 
 [tasks.release]
-description = "Release new version"
+description = "Release new version (CLI publishing pipeline)"
 run = "pnpm release"
 
 # ---------------------------------------------------------------------------
@@ -164,10 +159,8 @@ run = "pnpm lint:fix"
 # ---------------------------------------------------------------------------
 
 [tasks.setup]
-description = "Setup development environment"
+description = "Setup development environment (dev deps + build artifacts via scripts/build.sh)"
 depends = [
-  "//:install-workspace-toolkit",
-  "//:bridge:build",
   "//:sqlc-generate",
   "//:pnpm-install",
   "//:go-install",
@@ -175,7 +168,12 @@ depends = [
 run = """
 #!/bin/bash
 set -e
+./scripts/build.sh --no-image
+echo
 echo '✓ Setup complete!'
 echo '  Next: mise run dev   (starts postgres+qdrant+sparse and runs server with air)'
 echo '  Then: mise run web   (in another terminal — opens http://localhost:18082)'
+echo
+echo '  For production deployment:'
+echo '    ./scripts/build.sh && ./scripts/install.sh --enable'
 """
