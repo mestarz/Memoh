@@ -2249,133 +2249,137 @@ func jsQuote(value string) string {
 }
 
 const mustElementHelper = `
-function mustElement(selector) {
-  const el = document.querySelector(selector);
-  if (!el) throw new Error("element not found: " + selector);
-  return el;
-}
+if (!globalThis.__memohHelpersLoaded) {
+  globalThis.__memohHelpersLoaded = true;
 
-const memohInteractiveSelector = [
-  'a[href]',
-  'button',
-  'input',
-  'select',
-  'textarea',
-  'summary',
-  '[contenteditable="true"]',
-  '[role="button"]',
-  '[role="link"]',
-  '[role="tab"]',
-  '[role="menuitem"]',
-  '[role="checkbox"]',
-  '[role="radio"]',
-  '[onclick]',
-  '[tabindex]:not([tabindex="-1"])'
-].join(',');
+  globalThis.mustElement = function mustElement(selector) {
+    const el = document.querySelector(selector);
+    if (!el) throw new Error("element not found: " + selector);
+    return el;
+  };
 
-function memohVisible(el) {
-  const rect = el.getBoundingClientRect();
-  const style = getComputedStyle(el);
-  if (rect.width === 0 || rect.height === 0) return null;
-  if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return null;
-  return rect;
-}
+  globalThis.memohInteractiveSelector = [
+    'a[href]',
+    'button',
+    'input',
+    'select',
+    'textarea',
+    'summary',
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="tab"]',
+    '[role="menuitem"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[onclick]',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',');
 
-function memohRole(el) {
-  const explicit = (el.getAttribute('role') || '').trim();
-  if (explicit) return explicit;
-  const tag = el.tagName.toLowerCase();
-  if (tag === 'a') return 'link';
-  if (tag === 'button') return 'button';
-  if (tag === 'select') return 'combobox';
-  if (tag === 'textarea') return 'textbox';
-  if (tag === 'summary') return 'button';
-  if (tag === 'input') {
-    const type = (el.getAttribute('type') || 'text').toLowerCase();
-    if (type === 'checkbox') return 'checkbox';
-    if (type === 'radio') return 'radio';
-    if (type === 'submit' || type === 'button' || type === 'reset') return 'button';
-    return 'textbox';
-  }
-  return 'element';
-}
+  globalThis.memohVisible = function memohVisible(el) {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    if (rect.width === 0 || rect.height === 0) return null;
+    if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return null;
+    return rect;
+  };
 
-function memohElementName(el) {
-  const tag = el.tagName.toLowerCase();
-  const type = (el.getAttribute('type') || '').toLowerCase();
-  const candidates = [
-    el.getAttribute('aria-label'),
-    el.getAttribute('alt'),
-    el.getAttribute('title'),
-    el.getAttribute('placeholder')
-  ];
-  if (tag === 'input' && ['button', 'submit', 'reset'].includes(type)) {
-    candidates.push(el.value);
-  }
-  candidates.push(el.innerText, el.textContent);
-  for (const candidate of candidates) {
-    const text = String(candidate || '').replace(/\s+/g, ' ').trim();
-    if (text) return text.slice(0, 80);
-  }
-  return '';
-}
-
-function memohCssEscape(value) {
-  if (globalThis.CSS && typeof CSS.escape === 'function') return CSS.escape(value);
-  return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
-}
-
-function memohCssPath(el) {
-  if (el.id) return '#' + memohCssEscape(el.id);
-  const parts = [];
-  let node = el;
-  while (node && node.nodeType === Node.ELEMENT_NODE && node !== document.body && node !== document.documentElement) {
-    let part = node.tagName.toLowerCase();
-    const parent = node.parentElement;
-    if (!parent) break;
-    const sameTag = Array.from(parent.children).filter(child => child.tagName === node.tagName);
-    if (sameTag.length > 1) {
-      part += ':nth-of-type(' + (sameTag.indexOf(node) + 1) + ')';
+  globalThis.memohRole = function memohRole(el) {
+    const explicit = (el.getAttribute('role') || '').trim();
+    if (explicit) return explicit;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'a') return 'link';
+    if (tag === 'button') return 'button';
+    if (tag === 'select') return 'combobox';
+    if (tag === 'textarea') return 'textbox';
+    if (tag === 'summary') return 'button';
+    if (tag === 'input') {
+      const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if (type === 'checkbox') return 'checkbox';
+      if (type === 'radio') return 'radio';
+      if (type === 'submit' || type === 'button' || type === 'reset') return 'button';
+      return 'textbox';
     }
-    parts.unshift(part);
-    node = parent;
-  }
-  return parts.length ? parts.join(' > ') : el.tagName.toLowerCase();
-}
+    return 'element';
+  };
 
-function memohInteractiveElements() {
-  const result = [];
-  const seen = new Set();
-  for (const el of document.querySelectorAll(memohInteractiveSelector)) {
-    if (seen.has(el)) continue;
-    seen.add(el);
-    const rect = memohVisible(el);
-    if (!rect) continue;
-    const ref = 'e' + (result.length + 1);
-    result.push({
-      ref,
-      element: el,
-      rect,
-      tag: el.tagName.toLowerCase(),
-      role: memohRole(el),
-      name: memohElementName(el),
-      selector: memohCssPath(el)
-    });
-  }
-  return result;
-}
+  globalThis.memohElementName = function memohElementName(el) {
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const candidates = [
+      el.getAttribute('aria-label'),
+      el.getAttribute('alt'),
+      el.getAttribute('title'),
+      el.getAttribute('placeholder')
+    ];
+    if (tag === 'input' && ['button', 'submit', 'reset'].includes(type)) {
+      candidates.push(el.value);
+    }
+    candidates.push(el.innerText, el.textContent);
+    for (const candidate of candidates) {
+      const text = String(candidate || '').replace(/\s+/g, ' ').trim();
+      if (text) return text.slice(0, 80);
+    }
+    return '';
+  };
 
-function elementByRef(ref) {
-  const value = String(ref || '').trim().toLowerCase().replace(/^ref=/, '').replace(/^e/, '');
-  const index = Number.parseInt(value, 10);
-  if (!Number.isInteger(index) || index < 1) throw new Error('invalid element ref: ' + ref);
-  const item = memohInteractiveElements()[index - 1];
-  if (!item) throw new Error('element ref not found: ' + ref + ' (observe again; the page may have changed)');
-  return item.element;
-}
+  globalThis.memohCssEscape = function memohCssEscape(value) {
+    if (globalThis.CSS && typeof CSS.escape === 'function') return CSS.escape(value);
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  };
 
-function mustTarget(selector, ref) {
-  if (String(ref || '').trim()) return elementByRef(ref);
-  return mustElement(selector);
+  globalThis.memohCssPath = function memohCssPath(el) {
+    if (el.id) return '#' + memohCssEscape(el.id);
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === Node.ELEMENT_NODE && node !== document.body && node !== document.documentElement) {
+      let part = node.tagName.toLowerCase();
+      const parent = node.parentElement;
+      if (!parent) break;
+      const sameTag = Array.from(parent.children).filter(child => child.tagName === node.tagName);
+      if (sameTag.length > 1) {
+        part += ':nth-of-type(' + (sameTag.indexOf(node) + 1) + ')';
+      }
+      parts.unshift(part);
+      node = parent;
+    }
+    return parts.length ? parts.join(' > ') : el.tagName.toLowerCase();
+  };
+
+  globalThis.memohInteractiveElements = function memohInteractiveElements() {
+    const result = [];
+    const seen = new Set();
+    for (const el of document.querySelectorAll(memohInteractiveSelector)) {
+      if (seen.has(el)) continue;
+      seen.add(el);
+      const rect = memohVisible(el);
+      if (!rect) continue;
+      const ref = 'e' + (result.length + 1);
+      result.push({
+        ref,
+        element: el,
+        rect,
+        tag: el.tagName.toLowerCase(),
+        role: memohRole(el),
+        name: memohElementName(el),
+        selector: memohCssPath(el)
+      });
+    }
+    return result;
+  };
+
+  globalThis.elementByRef = function elementByRef(ref) {
+    const value = String(ref || '').trim().toLowerCase().replace(/^ref=/, '').replace(/^e/, '');
+    const index = Number.parseInt(value, 10);
+    if (!Number.isInteger(index) || index < 1) throw new Error('invalid element ref: ' + ref);
+    const item = memohInteractiveElements()[index - 1];
+    if (!item) throw new Error('element ref not found: ' + ref + ' (observe again; the page may have changed)');
+    return item.element;
+  };
+
+  globalThis.mustTarget = function mustTarget(selector, ref) {
+    if (String(ref || '').trim()) return elementByRef(ref);
+    return mustElement(selector);
+  };
 }
 `
