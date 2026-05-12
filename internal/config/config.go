@@ -46,11 +46,60 @@ type Config struct {
 	Docker      DockerConfig      `toml:"docker"`
 	Local       LocalConfig       `toml:"local"`
 	Workspace   WorkspaceConfig   `toml:"workspace"`
+	Display     DisplayConfig     `toml:"display"`
 	Postgres    PostgresConfig    `toml:"postgres"`
 	Qdrant      QdrantConfig      `toml:"qdrant"`
 	Sparse      SparseConfig      `toml:"sparse"`
 	Registry    RegistryConfig    `toml:"registry"`
 	Supermarket SupermarketConfig `toml:"supermarket"`
+}
+
+// DisplayConfig configures the bot workspace remote desktop pipeline.
+type DisplayConfig struct {
+	WebRTC DisplayWebRTCConfig `toml:"webrtc"`
+}
+
+// DisplayWebRTCConfig tunes the WebRTC transport that streams the bot's
+// workspace desktop to the browser. The defaults are tuned for single-host
+// usage; LAN deployments should usually set udp_port_min/max (and optionally
+// tcp_port) to predictable values so firewall rules can be opened, and may
+// need to set nat_ips when the server is reached through a hostname/NAT
+// the auto-detection cannot infer.
+type DisplayWebRTCConfig struct {
+	// UDPPortMin / UDPPortMax confine the ephemeral UDP port range used for
+	// ICE host candidates. When zero the OS picks any free port.
+	UDPPortMin uint16 `toml:"udp_port_min"`
+	UDPPortMax uint16 `toml:"udp_port_max"`
+	// TCPPort enables an ICE-TCP fallback listener bound to 0.0.0.0 on the
+	// configured port. When 0 the fallback is disabled.
+	TCPPort uint16 `toml:"tcp_port"`
+	// NATIPs are extra public/LAN IPs to advertise as host candidates. They
+	// are unioned with addresses inferred from the request and (when
+	// auto_nat_ips is enabled) the host's own non-loopback interfaces.
+	NATIPs []string `toml:"nat_ips"`
+	// AutoNATIPs controls whether the server advertises every non-loopback
+	// IPv4 it finds on local network interfaces. Enabled by default so that
+	// LAN clients can establish a host candidate without extra configuration.
+	AutoNATIPs *bool `toml:"auto_nat_ips"`
+	// AutoNATIncludeCIDRs optionally narrows auto_nat_ips to only addresses
+	// inside one of the listed CIDRs. When empty (default) every non-loopback
+	// non-link-local IP is advertised. Useful to skip docker/veth bridges,
+	// e.g. ["192.168.0.0/16", "10.8.0.0/16", "100.64.0.0/10"] keeps LAN, VPN
+	// and Tailscale ranges while dropping 172.16/12 docker bridges.
+	AutoNATIncludeCIDRs []string `toml:"auto_nat_include_cidrs"`
+	// STUNServers configures public STUN servers for ICE gathering. Unset
+	// by default: pure-LAN deployments do not need STUN, and we don't want
+	// to leak traffic to third parties without explicit opt-in.
+	STUNServers []string `toml:"stun_servers"`
+}
+
+// AutoNATEnabled returns whether host-IP auto-discovery is active.
+// When AutoNATIPs is nil, the default is true.
+func (c DisplayWebRTCConfig) AutoNATEnabled() bool {
+	if c.AutoNATIPs == nil {
+		return true
+	}
+	return *c.AutoNATIPs
 }
 
 type LogConfig struct {

@@ -6,20 +6,22 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestReadRTCSettings(t *testing.T) {
+func TestResolveRTCSettingsFromEnv(t *testing.T) {
 	t.Setenv(rtcUDPPortMinEnv, "30000")
 	t.Setenv(rtcUDPPortMaxEnv, "30100")
 	t.Setenv(rtcNATIPsEnv, "127.0.0.1, 10.0.0.10")
 
-	cfg, err := readRTCSettings(nil)
+	svc := &Service{logger: slog.Default()}
+	cfg, err := svc.resolveRTCSettings(nil)
 	if err != nil {
-		t.Fatalf("readRTCSettings returned error: %v", err)
+		t.Fatalf("resolveRTCSettings returned error: %v", err)
 	}
 	if cfg.UDPPortMin != 30000 || cfg.UDPPortMax != 30100 {
 		t.Fatalf("unexpected UDP range: %d-%d", cfg.UDPPortMin, cfg.UDPPortMax)
@@ -49,29 +51,84 @@ func TestIsSocketReadyRequiresListener(t *testing.T) {
 	}
 }
 
-func TestReadRTCSettingsRejectsPartialPortRange(t *testing.T) {
+func TestResolveRTCSettingsRejectsPartialPortRange(t *testing.T) {
 	t.Setenv(rtcUDPPortMinEnv, "30000")
 
-	if _, err := readRTCSettings(nil); err == nil {
+	svc := &Service{logger: slog.Default()}
+	if _, err := svc.resolveRTCSettings(nil); err == nil {
 		t.Fatal("expected partial port range to fail")
 	}
 }
 
-func TestReadRTCSettingsRejectsInvalidNATIP(t *testing.T) {
+func TestResolveRTCSettingsRejectsInvalidNATIP(t *testing.T) {
 	t.Setenv(rtcNATIPsEnv, "localhost")
 
-	if _, err := readRTCSettings(nil); err == nil {
+	svc := &Service{logger: slog.Default()}
+	if _, err := svc.resolveRTCSettings(nil); err == nil {
 		t.Fatal("expected invalid NAT IP to fail")
 	}
 }
 
-func TestReadRTCSettingsUsesInferredNATIPs(t *testing.T) {
-	cfg, err := readRTCSettings([]string{"100.123.2.67", "10.0.0.2"})
+func TestResolveRTCSettingsUsesInferredNATIPs(t *testing.T) {
+	svc := &Service{logger: slog.Default()}
+	cfg, err := svc.resolveRTCSettings([]string{"100.123.2.67", "10.0.0.2"})
 	if err != nil {
-		t.Fatalf("readRTCSettings returned error: %v", err)
+		t.Fatalf("resolveRTCSettings returned error: %v", err)
 	}
 	if len(cfg.NATIPs) != 2 || cfg.NATIPs[0] != "100.123.2.67" || cfg.NATIPs[1] != "10.0.0.2" {
 		t.Fatalf("unexpected inferred NAT IPs: %#v", cfg.NATIPs)
+	}
+}
+
+func TestResolveRTCSettingsLayersOptionsHostAndRequest(t *testing.T) {
+	svc := &Service{
+		logger:  slog.Default(),
+		opts:    Options{NATIPs: []string{"203.0.113.5"}, STUNServers: []string{"stun.example.com:3478"}},
+		hostIPs: []string{"10.0.0.10", "203.0.113.5"}, // intentional dup
+	}
+	cfg, err := svc.resolveRTCSettings([]string{"192.168.1.20"})
+	if err != nil {
+		t.Fatalf("resolveRTCSettings: %v", err)
+	}
+	want := []string{"203.0.113.5", "10.0.0.10", "192.168.1.20"}
+	if len(cfg.NATIPs) != len(want) {
+		t.Fatalf("unexpected NAT IPs: %#v", cfg.NATIPs)
+	}
+	for i, ip := range want {
+		if cfg.NATIPs[i] != ip {
+			t.Fatalf("NAT IP[%d]: got %s want %s", i, cfg.NATIPs[i], ip)
+		}
+	}
+	servers := cfg.iceServers()
+	if len(servers) != 1 || len(servers[0].URLs) != 1 || servers[0].URLs[0] != "stun:stun.example.com:3478" {
+		t.Fatalf("unexpected ice servers: %#v", servers)
+	}
+}
+
+func TestResolveRTCSettingsTCPEnabledFromOptions(t *testing.T) {
+	svc := &Service{logger: slog.Default(), opts: Options{TCPPort: 50443}}
+	cfg, err := svc.resolveRTCSettings(nil)
+	if err != nil {
+		t.Fatalf("resolveRTCSettings: %v", err)
+	}
+	if !cfg.TCPEnabled || cfg.TCPPort != 50443 {
+		t.Fatalf("expected TCP enabled on port 50443, got %#v", cfg)
+	}
+}
+
+func TestLocalHostIPsExcludesLoopback(t *testing.T) {
+	ips, err := localHostIPs()
+	if err != nil {
+		t.Fatalf("localHostIPs: %v", err)
+	}
+	for _, ip := range ips {
+		parsed := net.ParseIP(ip)
+		if parsed == nil {
+			t.Fatalf("invalid IP returned: %s", ip)
+		}
+		if parsed.IsLoopback() || parsed.IsLinkLocalUnicast() || parsed.IsUnspecified() {
+			t.Fatalf("filtered IP leaked through: %s", ip)
+		}
 	}
 }
 
@@ -244,4 +301,55 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestFilterIPsByCIDRWhitelist(t *testing.T) {
+	ips := []string{
+		"192.168.3.3",
+		"10.8.0.2",
+		"100.64.0.1",
+		"172.17.0.1",
+		"172.18.0.1",
+		"203.0.113.5",
+	}
+	cidrs := []string{
+		"192.168.0.0/16",
+		"10.8.0.0/16",
+		"100.64.0.0/10",
+	}
+	got := filterIPsByCIDR(ips, cidrs, slog.Default())
+	want := []string{"192.168.3.3", "10.8.0.2", "100.64.0.1"}
+	if len(got) != len(want) {
+		t.Fatalf("filterIPsByCIDR len = %d, want %d (%v)", len(got), len(want), got)
+	}
+	for i, v := range want {
+		if got[i] != v {
+			t.Fatalf("filterIPsByCIDR[%d] = %q, want %q (full=%v)", i, got[i], v, got)
+		}
+	}
+}
+
+func TestFilterIPsByCIDREmptyCIDRsPassThrough(t *testing.T) {
+	ips := []string{"192.168.1.1", "172.17.0.1"}
+	got := filterIPsByCIDR(ips, nil, slog.Default())
+	if len(got) != len(ips) {
+		t.Fatalf("expected pass-through, got %v", got)
+	}
+}
+
+func TestFilterIPsByCIDRAllInvalidCIDRsPassThrough(t *testing.T) {
+	ips := []string{"192.168.1.1", "172.17.0.1"}
+	got := filterIPsByCIDR(ips, []string{"not-a-cidr", "also/bad"}, slog.Default())
+	if len(got) != len(ips) {
+		t.Fatalf("expected pass-through when all CIDRs invalid, got %v", got)
+	}
+}
+
+func TestFilterIPsByCIDRIPv6(t *testing.T) {
+	ips := []string{"fd7a:115c:a1e0::a834:6223", "2408:8270::1", "192.168.1.1"}
+	got := filterIPsByCIDR(ips, []string{"fd7a::/16", "192.168.0.0/16"}, slog.Default())
+	want := []string{"fd7a:115c:a1e0::a834:6223", "192.168.1.1"}
+	if len(got) != len(want) {
+		t.Fatalf("filterIPsByCIDR ipv6 = %v, want %v", got, want)
+	}
 }

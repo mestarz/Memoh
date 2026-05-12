@@ -545,7 +545,7 @@ func containerInfoFromInspect(info container.InspectResponse) containerapi.Conta
 		ID:         id,
 		Image:      imageRef,
 		Labels:     labels,
-		StorageRef: containerapi.StorageRef{Driver: "docker", Key: info.ID, Kind: "container"},
+		StorageRef: containerapi.StorageRef{Driver: "docker", Key: storageKeyFromLabels(labels, info.ID), Kind: "container"},
 		Runtime:    containerapi.RuntimeInfo{Name: "docker"},
 		CreatedAt:  created,
 		UpdatedAt:  created,
@@ -565,11 +565,26 @@ func containerInfoFromSummary(info container.Summary) containerapi.ContainerInfo
 		ID:         id,
 		Image:      info.Image,
 		Labels:     info.Labels,
-		StorageRef: containerapi.StorageRef{Driver: "docker", Key: info.ID, Kind: "container"},
+		StorageRef: containerapi.StorageRef{Driver: "docker", Key: storageKeyFromLabels(info.Labels, info.ID), Kind: "container"},
 		Runtime:    containerapi.RuntimeInfo{Name: "docker"},
 		CreatedAt:  time.Unix(info.Created, 0),
 		UpdatedAt:  time.Unix(info.Created, 0),
 	}
+}
+
+// storageKeyFromLabels prefers an explicit storage key label (set when the
+// container was created with a snapshot key) over the raw container ID. The
+// snapshot lineage code in handlers needs the value to live in the same
+// namespace as the snapshot images' StorageKeyLabel; the container ID never
+// satisfies that, so falling back to it is only a last resort for legacy
+// containers that pre-date this change.
+func storageKeyFromLabels(labels map[string]string, fallback string) string {
+	if labels != nil {
+		if v := strings.TrimSpace(labels[containerapi.StorageKeyLabel]); v != "" {
+			return v
+		}
+	}
+	return fallback
 }
 
 func taskInfoFromInspect(info container.InspectResponse) containerapi.TaskInfo {

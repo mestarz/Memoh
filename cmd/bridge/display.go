@@ -92,7 +92,7 @@ func superviseXvnc(ctx context.Context) {
 			"-depth", "24",
 			"-SecurityTypes", "None",
 			"-rfbunixpath", rfbUnixPath,
-			"-rfbunixmode", "0660",
+			"-rfbunixmode", "0666",
 			"-rfbport", "0",
 		)
 		cmd.Env = withDisplayEnv(os.Environ())

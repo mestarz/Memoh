@@ -195,7 +195,7 @@ type ListSnapshotsResponse struct {
 	Snapshots   []SnapshotInfo `json:"snapshots"`
 }
 
-func NewWorkspaceContainerHandler(log *slog.Logger, manager containerWorkspace, cfg config.WorkspaceConfig, containerBackend string, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *WorkspaceContainerHandler {
+func NewWorkspaceContainerHandler(log *slog.Logger, manager containerWorkspace, cfg config.WorkspaceConfig, displayCfg config.DisplayConfig, containerBackend string, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *WorkspaceContainerHandler {
 	h := &WorkspaceContainerHandler{
 		manager:          manager,
 		cfg:              cfg,
@@ -207,8 +207,26 @@ func NewWorkspaceContainerHandler(log *slog.Logger, manager containerWorkspace, 
 		accountService:   accountService,
 		policyService:    policyService,
 	}
-	h.displayService = displaypkg.NewService(h.logger, manager)
+	h.displayService = displaypkg.NewServiceWithOptions(h.logger, manager, displayOptionsFromConfig(displayCfg))
 	return h
+}
+
+func displayOptionsFromConfig(cfg config.DisplayConfig) displaypkg.Options {
+	opts := displaypkg.Options{
+		UDPPortMin:          cfg.WebRTC.UDPPortMin,
+		UDPPortMax:          cfg.WebRTC.UDPPortMax,
+		TCPPort:             cfg.WebRTC.TCPPort,
+		AutoNATIPs:          cfg.WebRTC.AutoNATEnabled(),
+		AutoNATIncludeCIDRs: append([]string(nil), cfg.WebRTC.AutoNATIncludeCIDRs...),
+		STUNServers:         append([]string(nil), cfg.WebRTC.STUNServers...),
+	}
+	for _, ip := range cfg.WebRTC.NATIPs {
+		ip = strings.TrimSpace(ip)
+		if ip != "" {
+			opts.NATIPs = append(opts.NATIPs, ip)
+		}
+	}
+	return opts
 }
 
 func (h *WorkspaceContainerHandler) Register(e *echo.Echo) {
@@ -673,12 +691,18 @@ func (h *WorkspaceContainerHandler) ListSnapshots(c echo.Context) error {
 	}
 	lineage, ok := snapshotLineage(snapshotKey, data.RuntimeSnapshots)
 	if !ok {
-		h.logger.Warn("container snapshot chain root not found",
+		// Legacy containers (created before active storage keys were
+		// recorded as labels on docker backends) have a StorageRef.Key
+		// that does not live in the snapshot key namespace, so the
+		// lineage walk cannot find a chain root. Fall back to listing
+		// every runtime snapshot for the container so the page is still
+		// usable; new containers will find the chain root normally.
+		h.logger.Warn("container snapshot chain root not found; falling back to flat snapshot list",
 			slog.String("container_id", data.ContainerID),
 			slog.String("snapshotter", data.Snapshotter),
 			slog.String("snapshot_key", snapshotKey),
 		)
-		return echo.NewHTTPError(http.StatusInternalServerError, "container snapshot chain not found")
+		lineage = append(lineage[:0], data.RuntimeSnapshots...)
 	}
 
 	items := make([]SnapshotInfo, 0, len(lineage)+len(data.ManagedMeta))

@@ -31,7 +31,7 @@ func TestDockerSnapshotImageRefSanitizesRuntimeName(t *testing.T) {
 	}
 }
 
-func TestContainerInfoKeepsActiveStorageRefAsContainerID(t *testing.T) {
+func TestContainerInfoPrefersStorageKeyLabel(t *testing.T) {
 	info := containerInfoFromInspect(dockercontainer.InspectResponse{
 		ContainerJSONBase: &dockercontainer.ContainerJSONBase{
 			ID:      "docker-container-id",
@@ -45,8 +45,8 @@ func TestContainerInfoKeepsActiveStorageRefAsContainerID(t *testing.T) {
 			},
 		},
 	})
-	if info.StorageRef.Key != "docker-container-id" {
-		t.Fatalf("StorageRef.Key = %q, want container ID", info.StorageRef.Key)
+	if info.StorageRef.Key != "workspace-active-1" {
+		t.Fatalf("StorageRef.Key = %q, want active storage key from label", info.StorageRef.Key)
 	}
 	if info.ID != "workspace-bot-1" {
 		t.Fatalf("ID = %q, want container name", info.ID)
@@ -59,6 +59,20 @@ func TestContainerInfoKeepsActiveStorageRefAsContainerID(t *testing.T) {
 	}
 	if info.Labels[containerapi.StorageKeyLabel] != "workspace-active-1" {
 		t.Fatalf("storage label = %q, want workspace-active-1", info.Labels[containerapi.StorageKeyLabel])
+	}
+}
+
+func TestContainerInfoFallsBackToContainerIDWhenLabelMissing(t *testing.T) {
+	info := containerInfoFromInspect(dockercontainer.InspectResponse{
+		ContainerJSONBase: &dockercontainer.ContainerJSONBase{
+			ID:      "docker-container-id",
+			Name:    "/workspace-bot-legacy",
+			Created: "2026-01-02T03:04:05Z",
+		},
+		Config: &dockercontainer.Config{Image: "debian:bookworm-slim"},
+	})
+	if info.StorageRef.Key != "docker-container-id" {
+		t.Fatalf("StorageRef.Key = %q, want container ID fallback", info.StorageRef.Key)
 	}
 }
 

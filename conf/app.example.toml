@@ -7,7 +7,7 @@ level = "info"
 format = "text"
 
 [server]
-addr = "127.0.0.1:8080"
+addr = "127.0.0.1:18731"
 
 [admin]
 username = "admin"
@@ -72,3 +72,27 @@ base_url = "https://supermarket.memoh.ai"
 [web]
 host = "127.0.0.1"
 port = 8082
+
+## Bot workspace remote desktop (WebRTC) tuning.
+##
+## When the server is reached from another host on the LAN, browsers must be
+## able to receive a host candidate that points to a reachable IP. By default
+## Memoh auto-discovers every non-loopback interface IP and advertises them
+## as host candidates (enough for most LAN deployments).
+##
+## For NAT'd / firewalled environments, fix the UDP port range so it can be
+## opened in the firewall, and optionally enable an ICE-TCP fallback for
+## clients that cannot send UDP at all.
+[display.webrtc]
+# udp_port_min = 50000
+# udp_port_max = 50100
+# tcp_port = 50443             # 0 disables ICE-TCP; set to enable.
+# nat_ips = ["203.0.113.10"]   # Extra public/LAN IPs to advertise.
+# auto_nat_ips = true          # Default true; false to advertise only nat_ips.
+# auto_nat_include_cidrs = [   # Restrict auto-discovered IPs to these CIDRs.
+#   "192.168.0.0/16",          #   LAN
+#   "10.0.0.0/8",              #   private + VPN
+#   "100.64.0.0/10",           #   Tailscale CGNAT v4
+#   "fd7a:115c::/32",          #   Tailscale ULA v6
+# ]                            # Useful to skip docker bridges (172.16/12).
+# stun_servers = ["stun:stun.l.google.com:19302"]

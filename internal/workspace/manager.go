@@ -31,12 +31,25 @@ const (
 	ContainerPrefix             = "workspace-"
 	LegacyContainerPrefix       = "mcp-"
 	DisplayRFBSocketName        = "display.rfb.sock"
+	// ActiveStorageKeyPrefix is prepended to the bot ID to form the
+	// container's "active" snapshot key. This key is recorded as the
+	// container's StorageRef.Key (and a label on docker backends), so the
+	// snapshot lineage walker can use it as a chain root that lives in the
+	// same namespace as committed snapshot keys.
+	ActiveStorageKeyPrefix = "active-"
 
 	legacyGRPCPort = 9090
 )
 
 // ErrContainerNotFound is returned when no container exists for a bot.
 var ErrContainerNotFound = errors.New("container not found for bot")
+
+// ActiveStorageKey returns the canonical "active" snapshot key for a bot's
+// workspace container. Every backend that needs a snapshot chain root for the
+// container should use this value (versus the raw runtime container ID).
+func ActiveStorageKey(botID string) string {
+	return ActiveStorageKeyPrefix + strings.TrimSpace(botID)
+}
 
 // ContainerStatus combines DB records with live container runtime state.
 type ContainerStatus struct {
@@ -148,6 +161,19 @@ func (m *Manager) lockContainer(containerID string) func() {
 // container at /run/memoh, holding the UDS socket file.
 func (m *Manager) socketDir(botID string) string {
 	return filepath.Join(m.dataRoot(), "run", botID)
+}
+
+// BotDataDir returns the host-side directory bind-mounted into the workspace
+// container at /data. Storing /data outside the container rootfs guarantees
+// that container deletion, image rebuilds, or snapshot rollbacks never
+// silently destroy the bot's working state.
+//
+// The "workspaces/" segment intentionally differs from the legacy
+// "bots/" subdir (legacyDataDir) so the orphaned-data recovery heuristics
+// in dataio.go do not misclassify this directory as a legacy bind mount
+// awaiting import.
+func (m *Manager) BotDataDir(botID string) string {
+	return filepath.Join(m.dataRoot(), "workspaces", strings.TrimSpace(botID), "data")
 }
 
 // socketPath returns the path to the UDS socket file for a bot's container.
@@ -290,6 +316,10 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 	if err := os.MkdirAll(sockDir, 0o750); err != nil {
 		return ctr.ContainerSpec{}, fmt.Errorf("create socket dir: %w", err)
 	}
+	dataDir := m.BotDataDir(botID)
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
+		return ctr.ContainerSpec{}, fmt.Errorf("create bot data dir: %w", err)
+	}
 
 	mounts := []ctr.MountSpec{
 		{
@@ -308,6 +338,12 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 			Destination: "/run/memoh",
 			Type:        "bind",
 			Source:      sockDir,
+			Options:     []string{"rbind", "rw"},
+		},
+		{
+			Destination: config.DefaultDataMount,
+			Type:        "bind",
+			Source:      dataDir,
 			Options:     []string{"rbind", "rw"},
 		},
 	}
@@ -389,7 +425,7 @@ func (m *Manager) ensureBotWithImage(ctx context.Context, botID, image string, g
 		ID:              ContainerPrefix + botID,
 		ImageRef:        image,
 		ImagePullPolicy: m.cfg.EffectiveImagePullPolicy(),
-		StorageRef:      ctr.StorageRef{Driver: m.cfg.Snapshotter, Kind: "active"},
+		StorageRef:      ctr.StorageRef{Driver: m.cfg.Snapshotter, Key: ActiveStorageKey(botID), Kind: "active"},
 		Labels:          labels,
 		Spec:            spec,
 	})

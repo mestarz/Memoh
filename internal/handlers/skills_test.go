@@ -348,6 +348,7 @@ func newSkillsTestEnvWithMetadata(t *testing.T, metadata map[string]any) *skills
 		slog.Default(),
 		manager,
 		cfg,
+		config.DisplayConfig{},
 		"",
 		bots.NewService(slog.Default(), queries),
 		accounts.NewService(slog.Default(), accountStore),

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pion/ice/v4"
 	"github.com/pion/rtp"
 	sdpv3 "github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
@@ -118,29 +119,91 @@ type ControlInput struct {
 	Down       bool
 }
 
-type rtcSettings struct {
+// Options configures the display Service. All fields are optional; the
+// zero value reproduces legacy behavior (env-var driven configuration only).
+type Options struct {
+	// UDPPortMin / UDPPortMax confine ICE host UDP candidates. Zero leaves
+	// it to the OS. Overrides the MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN/MAX
+	// environment variables when both env vars are unset.
 	UDPPortMin uint16
 	UDPPortMax uint16
-	NATIPs     []string
+
+	// TCPPort enables an ICE-TCP fallback listener on 0.0.0.0:<port>.
+	// When 0, ICE-TCP is disabled. The listener is shared across all
+	// peer connections and the port itself is also added as a host
+	// candidate via the embedded TCP mux.
+	TCPPort uint16
+
+	// NATIPs are additional host candidate addresses to advertise.
+	NATIPs []string
+
+	// AutoNATIPs, when true, makes the service auto-discover every
+	// non-loopback IP on local interfaces and advertise them as host
+	// candidates. This is what allows other machines on the same LAN to
+	// reach the bot's remote desktop without per-deployment configuration.
+	AutoNATIPs bool
+
+	// AutoNATIncludeCIDRs, when non-empty, narrows AutoNATIPs to only
+	// addresses that fall inside one of the listed CIDRs. Each entry must
+	// parse with net.ParseCIDR; invalid entries are skipped with a warning.
+	// Useful to skip docker bridges (172.16/12) while keeping LAN, VPN and
+	// Tailscale ranges.
+	AutoNATIncludeCIDRs []string
+
+	// STUNServers are added to webrtc.Configuration.ICEServers so the peer
+	// can gather server-reflexive candidates. Optional.
+	STUNServers []string
 }
 
 type Service struct {
 	logger    *slog.Logger
 	workspace Workspace
+	opts      Options
+	hostIPs   []string
+
+	tcpMuxOnce sync.Once
+	tcpMux     iceTCPMuxHandle
 
 	mu       sync.Mutex
 	sessions map[string]*session
 }
 
+// iceTCPMuxHandle wraps a pion ice.TCPMux together with the underlying
+// listener so it can be inspected for tests / shutdown.
+type iceTCPMuxHandle struct {
+	mux      ice.TCPMux
+	listener net.Listener
+	err      error
+	enabled  bool
+}
+
 func NewService(logger *slog.Logger, workspace Workspace) *Service {
+	return NewServiceWithOptions(logger, workspace, Options{})
+}
+
+// NewServiceWithOptions creates a Service with explicit WebRTC tuning. It is
+// the constructor production code should call once at startup.
+func NewServiceWithOptions(logger *slog.Logger, workspace Workspace, opts Options) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{
+	svc := &Service{
 		logger:    logger.With(slog.String("component", "display")),
 		workspace: workspace,
+		opts:      opts,
 		sessions:  make(map[string]*session),
 	}
+	if opts.AutoNATIPs {
+		ips, err := localHostIPs()
+		if err != nil {
+			svc.logger.Warn("display: auto NAT IP discovery failed", slog.Any("error", err))
+		}
+		if len(opts.AutoNATIncludeCIDRs) > 0 {
+			ips = filterIPsByCIDR(ips, opts.AutoNATIncludeCIDRs, svc.logger)
+		}
+		svc.hostIPs = ips
+	}
+	return svc
 }
 
 func (s *Service) Status(ctx context.Context, botID string) Status {
@@ -527,20 +590,25 @@ func (s *session) answer(ctx context.Context, req OfferRequest) (OfferResponse, 
 		return OfferResponse{}, err
 	}
 
-	api, rtcCfg, err := newWebRTCAPI(mediaEngine, req.NATIPs)
+	api, rtcCfg, err := s.service.newWebRTCAPI(mediaEngine, req.NATIPs)
 	if err != nil {
 		return OfferResponse{}, err
 	}
-	pc, err := api.NewPeerConnection(webrtc.Configuration{})
+	pc, err := api.NewPeerConnection(webrtc.Configuration{
+		ICEServers: rtcCfg.iceServers(),
+	})
 	if err != nil {
 		return OfferResponse{}, err
 	}
-	if rtcCfg.UDPPortMin != 0 || len(rtcCfg.NATIPs) > 0 {
+	if rtcCfg.UDPPortMin != 0 || len(rtcCfg.NATIPs) > 0 || rtcCfg.TCPEnabled {
 		s.service.logger.Info("display webrtc configured",
 			slog.String("bot_id", s.botID),
 			slog.Int("udp_port_min", int(rtcCfg.UDPPortMin)),
 			slog.Int("udp_port_max", int(rtcCfg.UDPPortMax)),
+			slog.Bool("tcp_enabled", rtcCfg.TCPEnabled),
+			slog.Int("tcp_port", int(rtcCfg.TCPPort)),
 			slog.Any("nat_ips", rtcCfg.NATIPs),
+			slog.Any("stun_servers", rtcCfg.STUNServers),
 		)
 	}
 
@@ -900,8 +968,51 @@ func drainRTCP(sender *webrtc.RTPSender) {
 	}
 }
 
-func newWebRTCAPI(mediaEngine *webrtc.MediaEngine, inferredNATIPs []string) (*webrtc.API, rtcSettings, error) {
-	cfg, err := readRTCSettings(inferredNATIPs)
+// rtcSettings is the resolved configuration used for one peer connection.
+type rtcSettings struct {
+	UDPPortMin  uint16
+	UDPPortMax  uint16
+	TCPEnabled  bool
+	TCPPort     uint16
+	NATIPs      []string
+	STUNServers []string
+}
+
+func (c rtcSettings) iceServers() []webrtc.ICEServer {
+	if len(c.STUNServers) == 0 {
+		return nil
+	}
+	urls := make([]string, 0, len(c.STUNServers))
+	for _, raw := range c.STUNServers {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if !strings.Contains(raw, ":") {
+			// bare hostname; assume default STUN port
+			raw = "stun:" + raw + ":3478"
+		} else if !hasURIScheme(raw) {
+			raw = "stun:" + raw
+		}
+		urls = append(urls, raw)
+	}
+	if len(urls) == 0 {
+		return nil
+	}
+	return []webrtc.ICEServer{{URLs: urls}}
+}
+
+func hasURIScheme(s string) bool {
+	for _, scheme := range []string{"stun:", "stuns:", "turn:", "turns:"} {
+		if strings.HasPrefix(s, scheme) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) newWebRTCAPI(mediaEngine *webrtc.MediaEngine, inferredNATIPs []string) (*webrtc.API, rtcSettings, error) {
+	cfg, err := s.resolveRTCSettings(inferredNATIPs)
 	if err != nil {
 		return nil, rtcSettings{}, err
 	}
@@ -916,17 +1027,65 @@ func newWebRTCAPI(mediaEngine *webrtc.MediaEngine, inferredNATIPs []string) (*we
 		if err := settingEngine.SetICEAddressRewriteRules(webrtc.ICEAddressRewriteRule{
 			External:        cfg.NATIPs,
 			AsCandidateType: webrtc.ICECandidateTypeHost,
-			Mode:            webrtc.ICEAddressRewriteReplace,
+			Mode:            webrtc.ICEAddressRewriteAppend,
 		}); err != nil {
 			return nil, rtcSettings{}, fmt.Errorf("configure display WebRTC NAT rewrite: %w", err)
+		}
+	}
+	if cfg.TCPEnabled {
+		mux, err := s.ensureTCPMux(cfg.TCPPort)
+		if err != nil {
+			return nil, rtcSettings{}, fmt.Errorf("configure display WebRTC ICE-TCP: %w", err)
+		}
+		if mux != nil {
+			settingEngine.SetICETCPMux(mux)
+			settingEngine.SetNetworkTypes([]webrtc.NetworkType{
+				webrtc.NetworkTypeUDP4,
+				webrtc.NetworkTypeUDP6,
+				webrtc.NetworkTypeTCP4,
+				webrtc.NetworkTypeTCP6,
+			})
 		}
 	}
 
 	return webrtc.NewAPI(webrtc.WithMediaEngine(mediaEngine), webrtc.WithSettingEngine(settingEngine)), cfg, nil
 }
 
-func readRTCSettings(inferredNATIPs []string) (rtcSettings, error) {
-	var cfg rtcSettings
+// ensureTCPMux lazily creates the shared ICE-TCP listener. It is created
+// at most once per Service; a startup failure is cached so subsequent
+// sessions skip TCP rather than retrying noisily on every offer.
+func (s *Service) ensureTCPMux(port uint16) (ice.TCPMux, error) {
+	s.tcpMuxOnce.Do(func() {
+		listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.IPv4zero, Port: int(port)})
+		if err != nil {
+			s.tcpMux.err = err
+			s.logger.Warn("display webrtc ICE-TCP listener failed", slog.Int("port", int(port)), slog.Any("error", err))
+			return
+		}
+		s.tcpMux.listener = listener
+		s.tcpMux.mux = webrtc.NewICETCPMux(nil, listener, 8)
+		s.tcpMux.enabled = true
+		s.logger.Info("display webrtc ICE-TCP enabled", slog.String("addr", listener.Addr().String()))
+	})
+	if s.tcpMux.err != nil {
+		return nil, s.tcpMux.err
+	}
+	return s.tcpMux.mux, nil
+}
+
+// resolveRTCSettings layers configuration sources: explicit Options at
+// service init, the request-host inferred NAT IPs, and finally environment
+// variables. Env vars win over Options because they are easier to override
+// at deploy time without restarting via the config file.
+func (s *Service) resolveRTCSettings(inferredNATIPs []string) (rtcSettings, error) {
+	cfg := rtcSettings{
+		UDPPortMin: s.opts.UDPPortMin,
+		UDPPortMax: s.opts.UDPPortMax,
+		TCPEnabled: s.opts.TCPPort != 0,
+		TCPPort:    s.opts.TCPPort,
+	}
+	cfg.STUNServers = append(cfg.STUNServers, s.opts.STUNServers...)
+
 	minRaw := strings.TrimSpace(os.Getenv(rtcUDPPortMinEnv))
 	maxRaw := strings.TrimSpace(os.Getenv(rtcUDPPortMaxEnv))
 	if minRaw != "" || maxRaw != "" {
@@ -945,29 +1104,126 @@ func readRTCSettings(inferredNATIPs []string) (rtcSettings, error) {
 		cfg.UDPPortMax = maxPort
 	}
 
-	for _, part := range strings.Split(os.Getenv(rtcNATIPsEnv), ",") {
-		ip := strings.TrimSpace(part)
+	seen := make(map[string]struct{})
+	addIP := func(raw, source string) error {
+		ip := strings.TrimSpace(raw)
 		if ip == "" {
-			continue
+			return nil
 		}
 		if net.ParseIP(ip) == nil {
-			return cfg, fmt.Errorf("%s contains invalid IP %q", rtcNATIPsEnv, ip)
+			return fmt.Errorf("%s contains invalid IP %q", source, ip)
 		}
+		if _, ok := seen[ip]; ok {
+			return nil
+		}
+		seen[ip] = struct{}{}
 		cfg.NATIPs = append(cfg.NATIPs, ip)
+		return nil
 	}
-	if len(cfg.NATIPs) == 0 {
-		for _, ip := range inferredNATIPs {
-			ip = strings.TrimSpace(ip)
-			if ip == "" {
+
+	for _, ip := range s.opts.NATIPs {
+		if err := addIP(ip, "display.webrtc.nat_ips"); err != nil {
+			return cfg, err
+		}
+	}
+	for _, part := range strings.Split(os.Getenv(rtcNATIPsEnv), ",") {
+		if err := addIP(part, rtcNATIPsEnv); err != nil {
+			return cfg, err
+		}
+	}
+	for _, ip := range s.hostIPs {
+		_ = addIP(ip, "auto-discovered host IP")
+	}
+	for _, ip := range inferredNATIPs {
+		if err := addIP(ip, "request host"); err != nil {
+			return cfg, err
+		}
+	}
+
+	return cfg, nil
+}
+
+// localHostIPs enumerates non-loopback IP addresses that are likely
+// reachable by peers on the same network. IPv4 link-local (169.254/16)
+// addresses are skipped because they rarely lead to usable connectivity.
+func localHostIPs() ([]string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	seen := make(map[string]struct{})
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
 				continue
 			}
-			if net.ParseIP(ip) == nil {
-				return cfg, fmt.Errorf("inferred display WebRTC NAT IP %q is invalid", ip)
+			s := ip.String()
+			if _, ok := seen[s]; ok {
+				continue
 			}
-			cfg.NATIPs = append(cfg.NATIPs, ip)
+			seen[s] = struct{}{}
+			out = append(out, s)
 		}
 	}
-	return cfg, nil
+	return out, nil
+}
+
+// filterIPsByCIDR returns only those ips that fall inside one of the given
+// CIDRs. Invalid CIDR entries are logged and skipped. When parsedCIDRs is
+// empty (all entries invalid) the original list is returned unchanged so a
+// misconfigured filter never silently strips every host candidate.
+func filterIPsByCIDR(ips, cidrs []string, logger *slog.Logger) []string {
+	if len(cidrs) == 0 {
+		return ips
+	}
+	parsed := make([]*net.IPNet, 0, len(cidrs))
+	for _, raw := range cidrs {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		_, n, err := net.ParseCIDR(raw)
+		if err != nil {
+			if logger != nil {
+				logger.Warn("display: ignoring invalid auto_nat_include_cidrs entry",
+					slog.String("entry", raw), slog.Any("error", err))
+			}
+			continue
+		}
+		parsed = append(parsed, n)
+	}
+	if len(parsed) == 0 {
+		return ips
+	}
+	out := make([]string, 0, len(ips))
+	for _, raw := range ips {
+		ip := net.ParseIP(raw)
+		if ip == nil {
+			continue
+		}
+		for _, n := range parsed {
+			if n.Contains(ip) {
+				out = append(out, raw)
+				break
+			}
+		}
+	}
+	return out
 }
 
 func parseRTCUDPPort(name, raw string) (uint16, error) {

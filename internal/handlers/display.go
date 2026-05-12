@@ -653,7 +653,7 @@ if ! display_socket_ready; then
   if ! display_socket_ready; then
     stop_xvnc
     cleanup_stale_display
-    nohup "$XVNC" :99 -geometry 1280x800 -depth 24 -SecurityTypes None -rfbunixpath "$RFB_SOCKET" -rfbunixmode 0660 -rfbport 0 >/tmp/memoh-xvnc.log 2>&1 &
+    nohup "$XVNC" :99 -geometry 1280x800 -depth 24 -SecurityTypes None -rfbunixpath "$RFB_SOCKET" -rfbunixmode 0666 -rfbport 0 >/tmp/memoh-xvnc.log 2>&1 &
     wait_i=0
     while [ "$wait_i" -lt 25 ]; do
       display_socket_ready && break
