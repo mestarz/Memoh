@@ -3,21 +3,10 @@
   <h1>Memoh</h1>
   <p>可自托管、常在线的容器化 AI 智能体编排</p>
   <div align="center">
-    <img src="https://img.shields.io/github/package-json/v/memohai/Memoh" alt="Version" />
-    <img src="https://img.shields.io/github/license/memohai/Memoh" alt="License" />
-    <img src="https://img.shields.io/github/stars/memohai/Memoh?style=social" alt="Stars" />
-    <img src="https://img.shields.io/github/forks/memohai/Memoh?style=social" alt="Forks" />
-    <img src="https://img.shields.io/github/last-commit/memohai/Memoh" alt="Last Commit" />
-    <img src="https://img.shields.io/github/issues/memohai/Memoh" alt="Issues" />
-    <a href="https://deepwiki.com/memohai/Memoh">
-      <img src="https://deepwiki.com/badge.svg" alt="DeepWiki" />
-    </a>
-    <a href="https://t.me/memohai">
-      <img src="https://img.shields.io/badge/Telegram-Group-26A5E4?logo=telegram&logoColor=white" alt="Telegram" />
-    </a>
-    <a href="https://docs.memoh.ai">
-      <img src="https://img.shields.io/badge/Docs-memoh.ai-3eaf7c?logo=readthedocs&logoColor=white" alt="Documentation" />
-    </a>
+    <img src="https://img.shields.io/github/license/mestarz/Memoh" alt="License" />
+    <img src="https://img.shields.io/github/stars/mestarz/Memoh?style=social" alt="Stars" />
+    <img src="https://img.shields.io/github/last-commit/mestarz/Memoh" alt="Last Commit" />
+    <img src="https://img.shields.io/github/issues/mestarz/Memoh" alt="Issues" />
   </div>
 </div>
 
@@ -106,8 +95,6 @@ cp conf/app.docker.toml config.toml
 
 若想接现成的记忆服务，Memoh 也支持把 [**Mem0**](https://mem0.ai)（SaaS）和 **OpenViking**（自管或 SaaS）换进去，绑定和聊天体验一样，只换存储后端。
 
-完整说明见[文档](https://docs.memoh.ai/memory-providers/)。
-
 ## 图集
 
 <table>
@@ -138,32 +125,6 @@ cp conf/app.docker.toml config.toml
 </table>
 
 
-## 为本项目拆出的子项目
-
-- [**Twilight AI**](https://github.com/memohai/twilight-ai) — 给 Go 用的轻量、惯用 AI SDK，风格参考 [Vercel AI SDK](https://sdk.vercel.ai/)。与提供方解耦（OpenAI、Anthropic、Google），流式、工具调用、MCP、嵌入一等公民。
-
-## Star 历史
-
-[![Star History Chart](https://api.star-history.com/svg?repos=memohai/Memoh&type=date&legend=top-left)](https://www.star-history.com/#memohai/Memoh&type=date&legend=top-left)
-
-## 贡献者
-
-<a href="https://github.com/memohai/Memoh/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=memohai/Memoh" />
-</a>
-
-## 社区
-
-- 🌐 [**网站**](https://memoh.ai)
-- 📚 [**文档**](https://docs.memoh.ai) — 安装、概念与指南
-- 🤝 [**合作**](mailto:business@memoh.net) — business@memoh.net
-- 💬 [**Telegram 群组**](https://t.me/memohai) — 交流与支持
-- 🛒 [**应用超市**](https://github.com/memohai/supermarket) — 整理好的技能与 MCP 模板
-
 ---
 
-**许可证**：AGPLv3
-
-Made with ❤️ by MemohAI Team,
-
-Copyright (C) 2026 MemohAI (memoh.ai). All rights reserved.
+**许可证**：AGPLv3，基于 [memohai/Memoh](https://github.com/memohai/Memoh) 二次开发。
