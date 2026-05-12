@@ -95,6 +95,8 @@ tmp/
 /memoh
 /agent
 /bridge
+/bin/
+*.bak
 
 docs/docs/.vitepress/cache
 .pnpm-store
