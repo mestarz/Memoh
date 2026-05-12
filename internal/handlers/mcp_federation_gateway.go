@@ -275,7 +275,7 @@ func (g *MCPFederationGateway) CallStdioConnectionTool(ctx context.Context, botI
 
 func (g *MCPFederationGateway) startStdioConnectionSession(ctx context.Context, botID string, connection mcpgw.Connection) (*mcpSession, error) {
 	if g.handler == nil {
-		return nil, errors.New("containerd handler not configured")
+		return nil, errors.New("workspace handler not configured")
 	}
 	if err := g.handler.manager.EnsureRunning(ctx, botID); err != nil {
 		return nil, err

@@ -328,7 +328,7 @@ watch([() => form.display_name, () => form.workspace_backend], async ([displayNa
       form.local_workspace_path = path
     }
   } catch {
-    // Not in Electron or IPC unavailable
+    // IPC unavailable
   }
 })
 

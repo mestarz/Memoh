@@ -48,8 +48,7 @@ func (c CachedToken) Valid(now time.Time, refreshBefore time.Duration) bool {
 var adminKeyValuePattern = regexp.MustCompile(`^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$`)
 
 // ReadAdminCredentials parses the [admin] section of the config file at
-// configPath and returns the username/password pair. Mirrors
-// readAdminCredentials in apps/desktop/src/main/local-server.ts.
+// configPath and returns the username/password pair.
 func ReadAdminCredentials(configPath string) (AdminCredentials, error) {
 	raw, err := os.ReadFile(configPath) //nolint:gosec // configPath is derived from UserDataDir, not user input
 	if err != nil {

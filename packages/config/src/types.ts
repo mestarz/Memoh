@@ -5,10 +5,7 @@ export interface Config {
   auth: AuthConfig;
   database: DatabaseConfig;
   container: ContainerConfig;
-  containerd: ContainerdConfig;
   docker?: DockerConfig;
-  kubernetes?: KubernetesConfig;
-  apple?: AppleConfig;
   workspace?: WorkspaceConfig;
   postgres: PostgresConfig;
   qdrant: QdrantConfig;
@@ -46,29 +43,8 @@ export interface ContainerConfig extends WorkspaceConfig {
   backend: string;
 }
 
-export interface ContainerdConfig {
-  socket_path: string;
-  namespace: string;
-}
-
 export interface DockerConfig {
   host?: string;
-}
-
-export interface KubernetesConfig {
-  namespace?: string;
-  kubeconfig?: string;
-  in_cluster?: boolean;
-  service_account_name?: string;
-  image_pull_secret?: string;
-  pvc_storage_class?: string;
-  pvc_size?: string;
-  bridge_port?: number;
-}
-
-export interface AppleConfig {
-  socket_path?: string;
-  binary_path?: string;
 }
 
 export interface WorkspaceConfig {

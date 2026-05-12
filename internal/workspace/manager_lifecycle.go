@@ -23,7 +23,7 @@ import (
 // Container ID resolution
 // ---------------------------------------------------------------------------
 
-// ContainerID resolves the containerd container ID for a bot.
+// ContainerID resolves the container runtime container ID for a bot.
 // Resolution order: DB lookup → label search → full container scan.
 func (m *Manager) ContainerID(ctx context.Context, botID string) (string, error) {
 	if m.queries != nil {
@@ -198,7 +198,7 @@ func (m *Manager) EnsureRunning(ctx context.Context, botID string) error {
 		if !ctr.IsNotFound(err) {
 			return err
 		}
-		m.logger.Warn("container missing in containerd, rebuilding",
+		m.logger.Warn("container missing in container runtime, rebuilding",
 			slog.String("bot_id", botID), slog.String("container_id", containerID))
 		return m.SetupBotContainer(ctx, botID)
 	}
@@ -249,7 +249,7 @@ func (m *Manager) StopBot(ctx context.Context, botID string) error {
 }
 
 // GetContainerInfo returns current container status for a bot,
-// combining DB records with live containerd state.
+// combining DB records with live container runtime state.
 func (m *Manager) GetContainerInfo(ctx context.Context, botID string) (*ContainerStatus, error) {
 	if m.queries != nil {
 		pgBotID, parseErr := db.ParseUUID(botID)
@@ -402,7 +402,7 @@ func (m *Manager) CleanupBotContainer(ctx context.Context, botID string, preserv
 		if !ctr.IsNotFound(err) {
 			return err
 		}
-		m.logger.Warn("cleanup: container not found in containerd, continuing",
+		m.logger.Warn("cleanup: container not found in container runtime, continuing",
 			slog.String("bot_id", botID))
 	}
 
@@ -414,7 +414,7 @@ func (m *Manager) CleanupBotContainer(ctx context.Context, botID string, preserv
 // Reconciliation
 // ---------------------------------------------------------------------------
 
-// ReconcileContainers compares the DB containers table against actual containerd
+// ReconcileContainers compares the DB containers table against actual container runtime
 // state on startup. For each auto_start container in DB it verifies the container
 // and task exist; if missing they are rebuilt.
 func (m *Manager) ReconcileContainers(ctx context.Context) {
@@ -443,7 +443,7 @@ func (m *Manager) ReconcileContainers(ctx context.Context) {
 					slog.String("container_id", containerID), slog.Any("error", err))
 				continue
 			}
-			// Container missing in containerd — rebuild.
+			// Container missing in container runtime — rebuild.
 			m.logger.Warn("reconcile: container missing, rebuilding",
 				slog.String("bot_id", botID), slog.String("container_id", containerID))
 			if setupErr := m.SetupBotContainer(ctx, botID); setupErr != nil {

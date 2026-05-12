@@ -179,7 +179,7 @@ func newLegacyRouteTestManager(t *testing.T, svc runtimeService, cfg config.Work
 	logger := slog.New(slog.DiscardHandler)
 	m := &Manager{
 		service:           svc,
-		networkController: netctl.NewController(netctl.NewContainerRuntimeFromBackend("containerd", svc), nil, nil),
+		networkController: netctl.NewController(netctl.NewContainerRuntimeFromBackend("docker", svc), nil, nil),
 		cfg:               cfg,
 		namespace:         config.DefaultNamespace,
 		containerLocks:    make(map[string]*sync.Mutex),

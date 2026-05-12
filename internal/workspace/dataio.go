@@ -28,9 +28,9 @@ const (
 	archivePrefix    = "archive:"
 )
 
-// snapshotMountProvider is a private escape hatch for runtimes, currently
-// containerd, that can expose host-side snapshot mounts. It is deliberately not
-// part of the public container snapshot lifecycle abstraction.
+// snapshotMountProvider is a private escape hatch for runtimes that can
+// expose host-side snapshot mounts. It is deliberately not part of the
+// public container snapshot lifecycle abstraction.
 type snapshotMountProvider interface {
 	SnapshotMounts(ctx context.Context, snapshotter, key string) ([]ctr.MountInfo, error)
 }
@@ -218,7 +218,7 @@ func (m *Manager) importLegacyDir(ctx context.Context, botID, srcDir string) err
 }
 
 // recoverOrphanedSnapshot detects a snapshot whose container was deleted
-// (e.g. dev image rebuild, containerd metadata loss) and exports /data to a
+// (e.g. dev image rebuild, container runtime metadata loss) and exports /data to a
 // backup archive. The caller should invoke restorePreservedIntoSnapshot after
 // creating the replacement container. Returns true when data was preserved.
 func (m *Manager) recoverOrphanedSnapshot(ctx context.Context, botID string) bool {

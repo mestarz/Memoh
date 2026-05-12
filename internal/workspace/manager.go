@@ -38,7 +38,7 @@ const (
 // ErrContainerNotFound is returned when no container exists for a bot.
 var ErrContainerNotFound = errors.New("container not found for bot")
 
-// ContainerStatus combines DB records with live containerd state.
+// ContainerStatus combines DB records with live container runtime state.
 type ContainerStatus struct {
 	ContainerID      string    `json:"container_id"`
 	WorkspaceBackend string    `json:"workspace_backend"`
@@ -119,7 +119,7 @@ func NewManager(log *slog.Logger, service runtimeService, networkController netc
 	return m
 }
 
-// resolveContainerID resolves the actual containerd container ID for a bot.
+// resolveContainerID resolves the actual container runtime container ID for a bot.
 // This is the SINGLE point of container ID resolution for all lookup operations.
 // It delegates to ContainerID (DB → label → scan) and falls back to the
 // new-style prefix if no container exists yet.
@@ -521,7 +521,7 @@ func (m *Manager) startWithResolvedConfig(ctx context.Context, botID, image stri
 	// Before creating a new container, check for an orphaned snapshot
 	// (container deleted but snapshot with /data survived). Export /data
 	// to a backup so it can be restored after EnsureBot creates a fresh
-	// container. This covers dev image rebuilds, containerd metadata loss,
+	// container. This covers dev image rebuilds, container runtime metadata loss,
 	// and manual container deletion.
 	if _, err := m.service.GetContainer(ctx, containerID); ctr.IsNotFound(err) {
 		m.recoverOrphanedSnapshot(ctx, botID)

@@ -12,7 +12,7 @@ export type ContainerCreateLayerStatus = {
 }
 
 // codesync(container-create-stream): keep these manual SSE payload types in sync
-// with internal/handlers/containerd.go.
+// with internal/handlers/workspace_containers.go.
 export type ContainerCreateStreamEvent =
   | { type: 'pulling'; image: string }
   | { type: 'pull_progress'; layers: ContainerCreateLayerStatus[] }

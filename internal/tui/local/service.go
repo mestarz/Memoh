@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-// ManagedPid mirrors the JSON shape written by
-// apps/desktop/src/main/daemon.ts so the desktop main process and the
-// CLI can interchangeably manage the same memoh-server child.
+// ManagedPid is the JSON shape persisted in the local-server pid file
+// so the host process and the CLI can interchangeably manage the same
+// memoh-server child.
 type ManagedPid struct {
 	Pid       int    `json:"pid"`
 	Command   string `json:"command"`

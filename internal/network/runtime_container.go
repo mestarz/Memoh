@@ -86,20 +86,7 @@ func (r *containerRuntime) StatusNetwork(ctx context.Context, req RuntimeNetwork
 
 func descriptorForBackend(backend string) RuntimeDescriptor {
 	switch normalizeKind(backend) {
-	case "", "containerd":
-		return RuntimeDescriptor{
-			Kind:        "containerd",
-			DisplayName: "containerd",
-			Capabilities: RuntimeCapabilities{
-				SidecarWorker:       true,
-				RuntimeNetworkSetup: true,
-				CNI:                 true,
-				Devices:             true,
-				Capabilities:        true,
-				Privileged:          true,
-			},
-		}
-	case "docker":
+	case "", "docker":
 		return RuntimeDescriptor{
 			Kind:        "docker",
 			DisplayName: "Docker",

@@ -131,8 +131,8 @@ type WorkspaceConfig struct {
 }
 
 // ImageRef returns the fully qualified image reference for the base image,
-// prepending the registry mirror when configured and normalizing for containerd
-// compatibility.
+// prepending the registry mirror when configured and normalizing for the
+// container runtime.
 func (c WorkspaceConfig) ImageRef() string {
 	img := c.DefaultImage
 	if img == "" {
@@ -182,7 +182,7 @@ func homeDirOrDot() string {
 	return "."
 }
 
-// NormalizeImageRef ensures an image reference is fully qualified for containerd.
+// NormalizeImageRef ensures an image reference is fully qualified.
 func NormalizeImageRef(ref string) string {
 	firstSlash := strings.Index(ref, "/")
 	if firstSlash == -1 {
