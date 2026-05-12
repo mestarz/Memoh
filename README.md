@@ -95,36 +95,6 @@ cp conf/app.docker.toml config.toml
 
 若想接现成的记忆服务，Memoh 也支持把 [**Mem0**](https://mem0.ai)（SaaS）和 **OpenViking**（自管或 SaaS）换进去，绑定和聊天体验一样，只换存储后端。
 
-## 图集
-
-<table>
-  <tr>
-    <td><img src="./assets/gallery/01.png" alt="图集 1" width="100%"></td>
-    <td><img src="./assets/gallery/02.png" alt="图集 2" width="100%"></td>
-  </tr>
-  <tr>
-    <td><strong text-align="center">聊天</strong></td>
-    <td><strong text-align="center">容器</strong></td>
-  </tr>
-  <tr>
-    <td><img src="./assets/gallery/03.png" alt="图集 3" width="100%"></td>
-    <td><img src="./assets/gallery/04.png" alt="图集 4" width="100%"></td>
-  </tr>
-  <tr>
-    <td><strong text-align="center">提供方</strong></td>
-    <td><strong text-align="center">文件管理</strong></td>
-  </tr>
-  <tr>
-    <td><img src="./assets/gallery/05.png" alt="图集 5" width="100%"></td>
-    <td><img src="./assets/gallery/06.png" alt="图集 6" width="100%"></td>
-  </tr>
-  <tr>
-    <td><strong text-align="center">定时任务</strong></td>
-    <td><strong text-align="center">Token 用量</strong></td>
-  </tr>
-</table>
-
-
 ---
 
 **许可证**：AGPLv3，基于 [memohai/Memoh](https://github.com/memohai/Memoh) 二次开发。
