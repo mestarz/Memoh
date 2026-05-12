@@ -60,11 +60,20 @@
             :disabled="avatarUploading"
             @click="avatarFileRef?.click()"
           >
-            <Spinner v-if="avatarUploading" class="size-4" />
-            <Upload v-else class="size-4" />
+            <Spinner
+              v-if="avatarUploading"
+              class="size-4"
+            />
+            <Upload
+              v-else
+              class="size-4"
+            />
           </Button>
         </div>
-        <p v-if="avatarUploadError" class="text-destructive text-xs">
+        <p
+          v-if="avatarUploadError"
+          class="text-destructive text-xs"
+        >
           {{ avatarUploadError }}
         </p>
       </div>

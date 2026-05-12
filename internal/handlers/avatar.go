@@ -82,7 +82,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to open file")
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	// Spool into a temp file while computing SHA-256 hash.
 	h256 := sha256.New()
@@ -92,7 +92,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 	}
 	defer func() {
 		_ = tmp.Close()
-		_ = os.Remove(tmp.Name())
+		_ = os.Remove(tmp.Name()) //nolint:gosec // tmp.Name() is the path returned by os.CreateTemp.
 	}()
 
 	if _, err := io.Copy(io.MultiWriter(h256, tmp), src); err != nil {
@@ -104,7 +104,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 	dest := filepath.Join(h.dir, filename) //nolint:gosec // path is constructed from trusted hash+extension
 
 	// Dedup: skip write if identical content already stored.
-	if _, statErr := os.Stat(dest); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(dest); os.IsNotExist(statErr) { //nolint:gosec // dest is constructed from trusted hash+extension.
 		if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "seek error")
 		}
@@ -112,7 +112,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to save file")
 		}
-		defer out.Close()
+		defer func() { _ = out.Close() }()
 		if _, err := io.Copy(out, tmp); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to write file")
 		}
@@ -129,9 +129,8 @@ func (h *AvatarHandler) Serve(c echo.Context) error {
 	}
 	fp := filepath.Join(h.dir, filename) //nolint:gosec
 	ext := filepath.Ext(filename)
-	mt := mime.TypeByExtension(ext)
-	if mt == "" {
-		mt = "application/octet-stream"
+	if mt := mime.TypeByExtension(ext); mt != "" {
+		c.Response().Header().Set("Content-Type", mt)
 	}
 	c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	return c.File(fp)

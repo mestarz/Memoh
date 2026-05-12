@@ -13,18 +13,17 @@ import (
 	"github.com/memohai/memoh/internal/accounts"
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 type TokenUsageHandler struct {
-	queries        dbstore.Queries
+	queries        *dbsqlc.Queries
 	botService     *bots.Service
 	accountService *accounts.Service
 	logger         *slog.Logger
 }
 
-func NewTokenUsageHandler(log *slog.Logger, queries dbstore.Queries, botService *bots.Service, accountService *accounts.Service) *TokenUsageHandler {
+func NewTokenUsageHandler(log *slog.Logger, queries *dbsqlc.Queries, botService *bots.Service, accountService *accounts.Service) *TokenUsageHandler {
 	return &TokenUsageHandler{
 		queries:        queries,
 		botService:     botService,
@@ -170,7 +169,7 @@ func (h *TokenUsageHandler) GetTokenUsage(c echo.Context) error {
 }
 
 func (h *TokenUsageHandler) fetchUsageByDay(ctx context.Context, botID pgtype.UUID, from, to pgtype.Timestamptz, modelID pgtype.UUID) (chat, heartbeat, schedule []DailyTokenUsage, err error) {
-	rows, err := h.queries.GetTokenUsageByDayAndType(ctx, sqlc.GetTokenUsageByDayAndTypeParams{
+	rows, err := h.queries.GetTokenUsageByDayAndType(ctx, dbsqlc.GetTokenUsageByDayAndTypeParams{
 		BotID:    botID,
 		FromTime: from,
 		ToTime:   to,
@@ -201,7 +200,7 @@ func (h *TokenUsageHandler) fetchUsageByDay(ctx context.Context, botID pgtype.UU
 }
 
 func (h *TokenUsageHandler) fetchUsageByModel(ctx context.Context, botID pgtype.UUID, from, to pgtype.Timestamptz) ([]ModelTokenUsage, error) {
-	rows, err := h.queries.GetTokenUsageByModel(ctx, sqlc.GetTokenUsageByModelParams{
+	rows, err := h.queries.GetTokenUsageByModel(ctx, dbsqlc.GetTokenUsageByModelParams{
 		BotID:    botID,
 		FromTime: from,
 		ToTime:   to,
@@ -332,7 +331,7 @@ func (h *TokenUsageHandler) ListTokenUsageRecords(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	rows, err := h.queries.ListTokenUsageRecords(ctx, sqlc.ListTokenUsageRecordsParams{
+	rows, err := h.queries.ListTokenUsageRecords(ctx, dbsqlc.ListTokenUsageRecordsParams{
 		BotID:       pgBotID,
 		FromTime:    fromTS,
 		ToTime:      toTS,
@@ -346,7 +345,7 @@ func (h *TokenUsageHandler) ListTokenUsageRecords(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to list token usage records")
 	}
 
-	total, err := h.queries.CountTokenUsageRecords(ctx, sqlc.CountTokenUsageRecordsParams{
+	total, err := h.queries.CountTokenUsageRecords(ctx, dbsqlc.CountTokenUsageRecordsParams{
 		BotID:       pgBotID,
 		FromTime:    fromTS,
 		ToTime:      toTS,

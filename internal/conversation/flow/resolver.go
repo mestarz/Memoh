@@ -26,8 +26,7 @@ import (
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/compaction"
 	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	memprovider "github.com/memohai/memoh/internal/memory/adapters"
 	messagepkg "github.com/memohai/memoh/internal/message"
 	messageevent "github.com/memohai/memoh/internal/message/event"
@@ -75,7 +74,7 @@ type botChannelConfigReader interface {
 type Resolver struct {
 	agent             *agentpkg.Agent
 	modelsService     *models.Service
-	queries           dbstore.Queries
+	queries           *dbsqlc.Queries
 	memoryRegistry    *memprovider.Registry
 	conversationSvc   ConversationSettingsReader
 	messageService    messagepkg.Service
@@ -106,7 +105,7 @@ type Resolver struct {
 func NewResolver(
 	log *slog.Logger,
 	modelsService *models.Service,
-	queries dbstore.Queries,
+	queries *dbsqlc.Queries,
 	conversationSvc ConversationSettingsReader,
 	messageService messagepkg.Service,
 	settingsService *settings.Service,
@@ -259,7 +258,7 @@ type usageInfo struct {
 type resolvedContext struct {
 	runConfig       agentpkg.RunConfig
 	model           models.GetResponse
-	provider        sqlc.Provider
+	provider        dbsqlc.Provider
 	query           string // headerified query
 	injectedRecords *[]conversation.InjectedMessageRecord
 	estimatedTokens int // estimated input token count for compaction
@@ -524,10 +523,10 @@ type baseRunConfigParams struct {
 // buildBaseRunConfig creates a RunConfig with model, credentials, skills,
 // identity and system prompt — everything except Messages/Query/InlineImages.
 // Both resolve() and ResolveRunConfig() delegate to this shared builder.
-func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams) (agentpkg.RunConfig, models.GetResponse, sqlc.Provider, error) {
+func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams) (agentpkg.RunConfig, models.GetResponse, dbsqlc.Provider, error) {
 	botSettings, err := r.loadBotSettings(ctx, p.BotID)
 	if err != nil {
-		return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, err
+		return agentpkg.RunConfig{}, models.GetResponse{}, dbsqlc.Provider{}, err
 	}
 	loopDetectionEnabled := r.loadBotLoopDetectionEnabled(ctx, p.BotID)
 	userTimezoneName, userClockLocation := r.resolveTimezone(ctx, p.BotID, p.UserID)
@@ -541,7 +540,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 
 	chatModel, provider, err := r.selectChatModel(ctx, req, botSettings, conversation.Settings{})
 	if err != nil {
-		return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, err
+		return agentpkg.RunConfig{}, models.GetResponse{}, dbsqlc.Provider{}, err
 	}
 
 	reasoningEffort := p.ReasoningEffort
@@ -557,7 +556,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 	authCtx := oauthctx.WithUserID(ctx, p.UserID)
 	creds, err := authResolver.ResolveModelCredentials(authCtx, provider)
 	if err != nil {
-		return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, fmt.Errorf("resolve provider credentials: %w", err)
+		return agentpkg.RunConfig{}, models.GetResponse{}, dbsqlc.Provider{}, fmt.Errorf("resolve provider credentials: %w", err)
 	}
 
 	httpClient := r.streamHTTPClient

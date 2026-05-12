@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -33,6 +32,12 @@ type PingHandler struct {
 type snapshotCapabilityProvider interface {
 	SnapshotSupported(ctx context.Context) bool
 }
+
+var _ snapshotCapabilityProvider = (*snapshotCapabilityNop)(nil)
+
+type snapshotCapabilityNop struct{}
+
+func (snapshotCapabilityNop) SnapshotSupported(context.Context) bool { return false }
 
 func NewPingHandler(log *slog.Logger, rc *boot.RuntimeConfig, service ctr.Service, cfg config.Config) *PingHandler {
 	return &PingHandler{
@@ -68,19 +73,6 @@ func (*PingHandler) PingHead(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (h *PingHandler) snapshotSupported(ctx context.Context) bool {
-	switch h.runtime.ContainerBackend {
-	case "apple":
-		return false
-	case ctr.BackendKubernetes, ctr.BackendK8s:
-		provider, ok := h.service.(snapshotCapabilityProvider)
-		if !ok {
-			return false
-		}
-		probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		return provider.SnapshotSupported(probeCtx)
-	default:
-		return true
-	}
+func (h *PingHandler) snapshotSupported(_ context.Context) bool {
+	return h.runtime.ContainerBackend == ctr.BackendDocker
 }

@@ -11,7 +11,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/providers"
 	"github.com/memohai/memoh/internal/settings"
@@ -24,7 +24,7 @@ type ImageGenProvider struct {
 	logger     *slog.Logger
 	settings   *settings.Service
 	models     *models.Service
-	queries    dbstore.Queries
+	queries    *dbsqlc.Queries
 	containers bridge.Provider
 	dataMount  string
 }
@@ -33,7 +33,7 @@ func NewImageGenProvider(
 	log *slog.Logger,
 	settingsSvc *settings.Service,
 	modelsSvc *models.Service,
-	queries dbstore.Queries,
+	queries *dbsqlc.Queries,
 	containers bridge.Provider,
 	dataMount string,
 ) *ImageGenProvider {

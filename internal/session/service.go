@@ -11,8 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // Session represents a chat session within a bot.
@@ -52,12 +51,12 @@ type CreateInput struct {
 
 // Service manages bot chat sessions.
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
 // NewService creates a session service.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -102,7 +101,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Session, error
 		return Session{}, fmt.Errorf("invalid parent session id: %w", err)
 	}
 
-	row, err := s.queries.CreateSession(ctx, sqlc.CreateSessionParams{
+	row, err := s.queries.CreateSession(ctx, dbsqlc.CreateSessionParams{
 		BotID:           pgBotID,
 		RouteID:         pgRouteID,
 		ChannelType:     channelType,
@@ -183,7 +182,7 @@ func (s *Service) UpdateTitle(ctx context.Context, sessionID, title string) (Ses
 	if err != nil {
 		return Session{}, fmt.Errorf("invalid session id: %w", err)
 	}
-	row, err := s.queries.UpdateSessionTitle(ctx, sqlc.UpdateSessionTitleParams{
+	row, err := s.queries.UpdateSessionTitle(ctx, dbsqlc.UpdateSessionTitleParams{
 		ID:    pgID,
 		Title: title,
 	})
@@ -206,7 +205,7 @@ func (s *Service) UpdateMetadata(ctx context.Context, sessionID string, metadata
 	if err != nil {
 		return Session{}, fmt.Errorf("marshal metadata: %w", err)
 	}
-	row, err := s.queries.UpdateSessionMetadata(ctx, sqlc.UpdateSessionMetadataParams{
+	row, err := s.queries.UpdateSessionMetadata(ctx, dbsqlc.UpdateSessionMetadataParams{
 		ID:       pgID,
 		Metadata: metaBytes,
 	})
@@ -244,7 +243,7 @@ func (s *Service) SetRouteActiveSession(ctx context.Context, routeID, sessionID 
 	if err != nil {
 		return fmt.Errorf("invalid session id: %w", err)
 	}
-	return s.queries.SetRouteActiveSession(ctx, sqlc.SetRouteActiveSessionParams{
+	return s.queries.SetRouteActiveSession(ctx, dbsqlc.SetRouteActiveSessionParams{
 		ID:              pgRouteID,
 		ActiveSessionID: pgSessionID,
 	})
@@ -295,7 +294,7 @@ func (s *Service) EnsureActiveSession(ctx context.Context, botID, routeID, chann
 	return sess, nil
 }
 
-func toSession(row sqlc.BotSession) Session {
+func toSession(row dbsqlc.BotSession) Session {
 	parentID := ""
 	if row.ParentSessionID.Valid {
 		parentID = row.ParentSessionID.String()
@@ -330,7 +329,7 @@ func parseJSONMap(data []byte) map[string]any {
 	return m
 }
 
-func toSessionFromListRow(row sqlc.ListSessionsByBotRow) Session {
+func toSessionFromListRow(row dbsqlc.ListSessionsByBotRow) Session {
 	return Session{
 		ID:                    row.ID.String(),
 		BotID:                 row.BotID.String(),

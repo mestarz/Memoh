@@ -11,18 +11,17 @@ import (
 	sdk "github.com/memohai/twilight-ai/sdk"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
 
 type Service struct {
-	queries  dbstore.Queries
+	queries  *dbsqlc.Queries
 	logger   *slog.Logger
 	registry *Registry
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, registry *Registry) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, registry *Registry) *Service {
 	return &Service{
 		queries:  queries,
 		logger:   log.With(slog.String("service", "audio")),
@@ -205,7 +204,7 @@ func (s *Service) UpdateSpeechModel(ctx context.Context, id string, req UpdateSp
 	if req.Name != nil {
 		name = pgtype.Text{String: *req.Name, Valid: *req.Name != ""}
 	}
-	updated, err := s.queries.UpdateModel(ctx, sqlc.UpdateModelParams{
+	updated, err := s.queries.UpdateModel(ctx, dbsqlc.UpdateModelParams{
 		ID:         pgID,
 		ModelID:    row.ModelID,
 		Name:       name,
@@ -236,7 +235,7 @@ func (s *Service) UpdateTranscriptionModel(ctx context.Context, id string, req U
 	if req.Name != nil {
 		name = pgtype.Text{String: *req.Name, Valid: *req.Name != ""}
 	}
-	updated, err := s.queries.UpdateModel(ctx, sqlc.UpdateModelParams{
+	updated, err := s.queries.UpdateModel(ctx, dbsqlc.UpdateModelParams{
 		ID:         pgID,
 		ModelID:    row.ModelID,
 		Name:       name,
@@ -595,7 +594,7 @@ func findModelTemplate(modelsList []ModelInfo, defaultModel string, modelID stri
 	return nil
 }
 
-func toSpeechProviderResponse(row sqlc.Provider) SpeechProviderResponse {
+func toSpeechProviderResponse(row dbsqlc.Provider) SpeechProviderResponse {
 	icon := ""
 	if row.Icon.Valid {
 		icon = row.Icon.String
@@ -643,7 +642,7 @@ func maskSpeechSecret(value string) string {
 	return value[:4] + "****" + value[len(value)-4:]
 }
 
-func toSpeechModelFromListRow(row sqlc.ListSpeechModelsRow) SpeechModelResponse {
+func toSpeechModelFromListRow(row dbsqlc.ListSpeechModelsRow) SpeechModelResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		_ = json.Unmarshal(row.Config, &cfg)
@@ -664,7 +663,7 @@ func toSpeechModelFromListRow(row sqlc.ListSpeechModelsRow) SpeechModelResponse 
 	}
 }
 
-func toSpeechModelFromModel(row sqlc.Model, providerType string) SpeechModelResponse {
+func toSpeechModelFromModel(row dbsqlc.Model, providerType string) SpeechModelResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		_ = json.Unmarshal(row.Config, &cfg)
@@ -685,7 +684,7 @@ func toSpeechModelFromModel(row sqlc.Model, providerType string) SpeechModelResp
 	}
 }
 
-func toSpeechModelWithProviderResponse(row sqlc.GetSpeechModelWithProviderRow) SpeechModelResponse {
+func toSpeechModelWithProviderResponse(row dbsqlc.GetSpeechModelWithProviderRow) SpeechModelResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		_ = json.Unmarshal(row.Config, &cfg)
@@ -706,7 +705,7 @@ func toSpeechModelWithProviderResponse(row sqlc.GetSpeechModelWithProviderRow) S
 	}
 }
 
-func toTranscriptionModelFromListRow(row sqlc.ListTranscriptionModelsRow) TranscriptionModelResponse {
+func toTranscriptionModelFromListRow(row dbsqlc.ListTranscriptionModelsRow) TranscriptionModelResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		_ = json.Unmarshal(row.Config, &cfg)
@@ -727,7 +726,7 @@ func toTranscriptionModelFromListRow(row sqlc.ListTranscriptionModelsRow) Transc
 	}
 }
 
-func toTranscriptionModelFromModel(row sqlc.Model, providerType string) TranscriptionModelResponse {
+func toTranscriptionModelFromModel(row dbsqlc.Model, providerType string) TranscriptionModelResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		_ = json.Unmarshal(row.Config, &cfg)
@@ -748,7 +747,7 @@ func toTranscriptionModelFromModel(row sqlc.Model, providerType string) Transcri
 	}
 }
 
-func toTranscriptionModelWithProviderResponse(row sqlc.GetTranscriptionModelWithProviderRow) TranscriptionModelResponse {
+func toTranscriptionModelWithProviderResponse(row dbsqlc.GetTranscriptionModelWithProviderRow) TranscriptionModelResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		_ = json.Unmarshal(row.Config, &cfg)

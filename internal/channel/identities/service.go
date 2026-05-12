@@ -12,20 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // Service provides channel identity lifecycle operations.
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
 var ErrChannelIdentityNotFound = errors.New("channel identity not found")
 
 // NewService creates a new channel identity service.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -45,7 +44,7 @@ func (s *Service) Create(ctx context.Context, channel, channelSubjectID, display
 	if channel == "" || channelSubjectID == "" {
 		return ChannelIdentity{}, errors.New("channel and channel_subject_id are required")
 	}
-	row, err := s.queries.CreateChannelIdentity(ctx, sqlc.CreateChannelIdentityParams{
+	row, err := s.queries.CreateChannelIdentity(ctx, dbsqlc.CreateChannelIdentityParams{
 		UserID:           pgtype.UUID{},
 		ChannelType:      channel,
 		ChannelSubjectID: channelSubjectID,
@@ -116,7 +115,7 @@ func (s *Service) ResolveByChannelIdentity(ctx context.Context, channel, channel
 		}
 	}
 
-	row, err := s.queries.UpsertChannelIdentityByChannelSubject(ctx, sqlc.UpsertChannelIdentityByChannelSubjectParams{
+	row, err := s.queries.UpsertChannelIdentityByChannelSubject(ctx, dbsqlc.UpsertChannelIdentityByChannelSubjectParams{
 		UserID:           pgtype.UUID{},
 		ChannelType:      channel,
 		ChannelSubjectID: channelSubjectID,
@@ -148,7 +147,7 @@ func (s *Service) UpsertChannelIdentity(ctx context.Context, channel, channelSub
 	if raw, ok := metadata["avatar_url"]; ok {
 		avatarURL = strings.TrimSpace(fmt.Sprint(raw))
 	}
-	row, err := s.queries.UpsertChannelIdentityByChannelSubject(ctx, sqlc.UpsertChannelIdentityByChannelSubjectParams{
+	row, err := s.queries.UpsertChannelIdentityByChannelSubject(ctx, dbsqlc.UpsertChannelIdentityByChannelSubjectParams{
 		UserID:           pgtype.UUID{},
 		ChannelType:      channel,
 		ChannelSubjectID: channelSubjectID,
@@ -200,7 +199,7 @@ func (s *Service) Search(ctx context.Context, query string, limit int) ([]Search
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.queries.SearchChannelIdentities(ctx, sqlc.SearchChannelIdentitiesParams{
+	rows, err := s.queries.SearchChannelIdentities(ctx, dbsqlc.SearchChannelIdentitiesParams{
 		Query:      strings.TrimSpace(query),
 		LimitCount: int32(limit), //nolint:gosec // limit is capped above
 	})
@@ -210,7 +209,7 @@ func (s *Service) Search(ctx context.Context, query string, limit int) ([]Search
 	items := make([]SearchResult, 0, len(rows))
 	for _, row := range rows {
 		item := SearchResult{
-			ChannelIdentity: toChannelIdentity(sqlc.ChannelIdentity{
+			ChannelIdentity: toChannelIdentity(dbsqlc.ChannelIdentity{
 				ID:               row.ID,
 				UserID:           row.UserID,
 				ChannelType:      row.ChannelType,
@@ -285,7 +284,7 @@ func (s *Service) LinkChannelIdentityToUser(ctx context.Context, channelIdentity
 	if err != nil {
 		return err
 	}
-	_, err = s.queries.SetChannelIdentityLinkedUser(ctx, sqlc.SetChannelIdentityLinkedUserParams{
+	_, err = s.queries.SetChannelIdentityLinkedUser(ctx, dbsqlc.SetChannelIdentityLinkedUserParams{
 		ID:     pgChannelIdentityID,
 		UserID: pgUserID,
 	})
@@ -298,7 +297,7 @@ func (s *Service) LinkChannelIdentityToUser(ctx context.Context, channelIdentity
 	return nil
 }
 
-func toChannelIdentity(row sqlc.ChannelIdentity) ChannelIdentity {
+func toChannelIdentity(row dbsqlc.ChannelIdentity) ChannelIdentity {
 	var metadata map[string]any
 	if len(row.Metadata) > 0 {
 		_ = json.Unmarshal(row.Metadata, &metadata)

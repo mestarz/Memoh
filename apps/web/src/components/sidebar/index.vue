@@ -1,28 +1,7 @@
 <template>
   <aside class="relative h-full">
-    <header
-      v-if="topInset"
-      class="fixed top-0 left-0 z-20 h-9 w-(--sidebar-width) flex items-center pl-[78px] pr-2 gap-1 bg-sidebar border-r border-sidebar-border [-webkit-app-region:drag]"
-    >
-      <div class="ml-auto flex items-center gap-1 [-webkit-app-region:no-drag]">
-        <Button
-          variant="ghost"
-          size="icon"
-          class="size-6 text-muted-foreground hover:text-foreground shrink-0"
-          :aria-label="t('bots.createBot')"
-          @click="router.push('/settings/bots')"
-        >
-          <Plus class="size-3.5" />
-        </Button>
-      </div>
-    </header>
-
-    <Sidebar
-      :collapsible="topInset ? 'none' : 'icon'"
-      :class="topInset ? 'pt-9 h-dvh border-r border-sidebar-border' : ''"
-    >
+    <Sidebar collapsible="icon">
       <SidebarHeader
-        v-if="!topInset"
         class="p-0 border-0"
       >
         <div class="h-10 flex items-center pl-2 group-data-[collapsible=icon]:pl-3 transition-[padding] duration-200 ease-linear">
@@ -100,13 +79,13 @@
         </SidebarMenu>
       </SidebarFooter>
 
-      <SidebarRail v-if="!topInset" />
+      <SidebarRail />
     </Sidebar>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useQuery } from '@pinia/colada'
@@ -129,13 +108,11 @@ import {
 import { Plus, LoaderCircle, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
 import BotItem from './bot-item.vue'
 import { usePinnedBots } from '@/composables/usePinnedBots'
-import { DesktopShellKey } from '@/lib/desktop-shell'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const { toggleSidebar } = useSidebar()
-const topInset = inject(DesktopShellKey, false)
 const { sortBots } = usePinnedBots()
 
 const { data: botData, isLoading } = useQuery(getBotsQuery())

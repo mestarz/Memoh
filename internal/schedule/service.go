@@ -18,8 +18,7 @@ import (
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/boot"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // SessionCreator creates sessions for schedule runs.
@@ -28,7 +27,7 @@ type SessionCreator interface {
 }
 
 type Service struct {
-	queries         dbstore.Queries
+	queries         *dbsqlc.Queries
 	cron            *cron.Cron
 	parser          cron.Parser
 	triggerer       Triggerer
@@ -40,7 +39,7 @@ type Service struct {
 	jobs            map[string]cron.EntryID
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, triggerer Triggerer, sessionCreator SessionCreator, runtimeConfig *boot.RuntimeConfig) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, triggerer Triggerer, sessionCreator SessionCreator, runtimeConfig *boot.RuntimeConfig) *Service {
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	location := time.UTC
 	if runtimeConfig != nil && runtimeConfig.TimezoneLocation != nil {
@@ -103,7 +102,7 @@ func (s *Service) Create(ctx context.Context, botID string, req CreateRequest) (
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	row, err := s.queries.CreateSchedule(ctx, sqlc.CreateScheduleParams{
+	row, err := s.queries.CreateSchedule(ctx, dbsqlc.CreateScheduleParams{
 		Name:        req.Name,
 		Description: req.Description,
 		Pattern:     req.Pattern,
@@ -197,7 +196,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Sch
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	updated, err := s.queries.UpdateSchedule(ctx, sqlc.UpdateScheduleParams{
+	updated, err := s.queries.UpdateSchedule(ctx, dbsqlc.UpdateScheduleParams{
 		ID:          pgID,
 		Name:        name,
 		Description: description,
@@ -279,7 +278,7 @@ func (s *Service) runSchedule(ctx context.Context, sched Schedule) error {
 	pgScheduleID := toUUID(sched.ID)
 	pgBotID := toUUID(sched.BotID)
 
-	logRow, err := s.queries.CreateScheduleLog(ctx, sqlc.CreateScheduleLogParams{
+	logRow, err := s.queries.CreateScheduleLog(ctx, dbsqlc.CreateScheduleLogParams{
 		ScheduleID: pgScheduleID,
 		BotID:      pgBotID,
 		SessionID:  pgSessionID,
@@ -319,7 +318,7 @@ func (s *Service) completeLog(ctx context.Context, logID pgtype.UUID, status, re
 	if !logID.Valid {
 		return
 	}
-	_, err := s.queries.CompleteScheduleLog(ctx, sqlc.CompleteScheduleLogParams{
+	_, err := s.queries.CompleteScheduleLog(ctx, dbsqlc.CompleteScheduleLogParams{
 		ID:           logID,
 		Status:       status,
 		ResultText:   resultText,
@@ -349,7 +348,7 @@ func (s *Service) ListLogs(ctx context.Context, botID string, limit, offset int)
 		return nil, 0, err
 	}
 
-	rows, err := s.queries.ListScheduleLogsByBot(ctx, sqlc.ListScheduleLogsByBotParams{
+	rows, err := s.queries.ListScheduleLogsByBot(ctx, dbsqlc.ListScheduleLogsByBotParams{
 		BotID:  pgBotID,
 		Limit:  int32(limit),  //nolint:gosec // capped to 100 above
 		Offset: int32(offset), //nolint:gosec // validated above
@@ -381,7 +380,7 @@ func (s *Service) ListLogsBySchedule(ctx context.Context, scheduleID string, lim
 		return nil, 0, err
 	}
 
-	rows, err := s.queries.ListScheduleLogsBySchedule(ctx, sqlc.ListScheduleLogsByScheduleParams{
+	rows, err := s.queries.ListScheduleLogsBySchedule(ctx, dbsqlc.ListScheduleLogsByScheduleParams{
 		ScheduleID: pgID,
 		Limit:      int32(limit),  //nolint:gosec // capped to 100 above
 		Offset:     int32(offset), //nolint:gosec // validated above
@@ -404,7 +403,7 @@ func (s *Service) DeleteLogs(ctx context.Context, botID string) error {
 	return s.queries.DeleteScheduleLogsByBot(ctx, pgBotID)
 }
 
-func toScheduleLog(row sqlc.ListScheduleLogsByBotRow) Log {
+func toScheduleLog(row dbsqlc.ListScheduleLogsByBotRow) Log {
 	l := Log{
 		ID:           row.ID.String(),
 		ScheduleID:   row.ScheduleID.String(),
@@ -430,7 +429,7 @@ func toScheduleLog(row sqlc.ListScheduleLogsByBotRow) Log {
 	return l
 }
 
-func toScheduleLogFromSchedule(row sqlc.ListScheduleLogsByScheduleRow) Log {
+func toScheduleLogFromSchedule(row dbsqlc.ListScheduleLogsByScheduleRow) Log {
 	l := Log{
 		ID:           row.ID.String(),
 		ScheduleID:   row.ScheduleID.String(),
@@ -485,7 +484,7 @@ func (s *Service) generateTriggerToken(userID string) (string, error) {
 	return "Bearer " + signed, nil
 }
 
-func (s *Service) scheduleJob(ctx context.Context, schedule sqlc.Schedule) error {
+func (s *Service) scheduleJob(ctx context.Context, schedule dbsqlc.Schedule) error {
 	id := schedule.ID.String()
 	if id == "" {
 		return errors.New("schedule id missing")
@@ -512,7 +511,7 @@ func (s *Service) scheduleJob(ctx context.Context, schedule sqlc.Schedule) error
 	return nil
 }
 
-func (s *Service) rescheduleJob(ctx context.Context, schedule sqlc.Schedule) error {
+func (s *Service) rescheduleJob(ctx context.Context, schedule dbsqlc.Schedule) error {
 	id := schedule.ID.String()
 	if id == "" {
 		return nil
@@ -534,7 +533,7 @@ func (s *Service) removeJob(id string) {
 	}
 }
 
-func toSchedule(row sqlc.Schedule) Schedule {
+func toSchedule(row dbsqlc.Schedule) Schedule {
 	item := Schedule{
 		ID:           row.ID.String(),
 		Name:         row.Name,

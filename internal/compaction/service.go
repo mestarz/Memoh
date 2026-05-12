@@ -10,19 +10,18 @@ import (
 	sdk "github.com/memohai/twilight-ai/sdk"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
 
 // Service manages context compaction for bot conversations.
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
 // NewService creates a new compaction Service.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	return &Service{
 		queries: queries,
 		logger:  log,
@@ -59,7 +58,7 @@ func (s *Service) runCompaction(ctx context.Context, cfg TriggerConfig) error {
 		return err
 	}
 
-	logRow, err := s.queries.CreateCompactionLog(ctx, sqlc.CreateCompactionLogParams{
+	logRow, err := s.queries.CreateCompactionLog(ctx, dbsqlc.CreateCompactionLogParams{
 		BotID:     botUUID,
 		SessionID: sessionUUID,
 	})
@@ -84,7 +83,7 @@ func (s *Service) doCompaction(ctx context.Context, logID pgtype.UUID, sessionUU
 		return nil
 	}
 
-	var toCompact []sqlc.ListUncompactedMessagesBySessionRow
+	var toCompact []dbsqlc.ListUncompactedMessagesBySessionRow
 	if cfg.TargetTokens > 0 {
 		// Sync compaction: compress enough messages to bring context
 		// down to TargetTokens. Calculate how many tokens to keep
@@ -165,7 +164,7 @@ func (s *Service) doCompaction(ctx context.Context, logID pgtype.UUID, sessionUU
 
 	modelUUID := db.ParseUUIDOrEmpty(cfg.ModelID)
 
-	if err := s.queries.MarkMessagesCompacted(ctx, sqlc.MarkMessagesCompactedParams{
+	if err := s.queries.MarkMessagesCompacted(ctx, dbsqlc.MarkMessagesCompactedParams{
 		CompactID: logID,
 		Column2:   messageIDs,
 	}); err != nil {
@@ -177,7 +176,7 @@ func (s *Service) doCompaction(ctx context.Context, logID pgtype.UUID, sessionUU
 }
 
 func (s *Service) completeLog(ctx context.Context, logID pgtype.UUID, status, summary, errMsg string, messageCount int, usage []byte, modelID pgtype.UUID) {
-	if _, err := s.queries.CompleteCompactionLog(ctx, sqlc.CompleteCompactionLogParams{
+	if _, err := s.queries.CompleteCompactionLog(ctx, dbsqlc.CompleteCompactionLogParams{
 		ID:           logID,
 		Status:       status,
 		Summary:      summary,
@@ -209,7 +208,7 @@ func (s *Service) ListLogs(ctx context.Context, botID string, limit, offset int)
 		return nil, 0, err
 	}
 
-	rows, err := s.queries.ListCompactionLogsByBot(ctx, sqlc.ListCompactionLogsByBotParams{
+	rows, err := s.queries.ListCompactionLogsByBot(ctx, dbsqlc.ListCompactionLogsByBotParams{
 		BotID:  botUUID,
 		Limit:  int32(limit),  //nolint:gosec // clamped above
 		Offset: int32(offset), //nolint:gosec // validated above
@@ -234,7 +233,7 @@ func (s *Service) DeleteLogs(ctx context.Context, botID string) error {
 	return s.queries.DeleteCompactionLogsByBot(ctx, botUUID)
 }
 
-func toLog(r sqlc.BotHistoryMessageCompact) Log {
+func toLog(r dbsqlc.BotHistoryMessageCompact) Log {
 	l := Log{
 		ID:           formatUUID(r.ID),
 		BotID:        formatUUID(r.BotID),
@@ -270,7 +269,7 @@ func formatUUID(id pgtype.UUID) string {
 // are returned for compaction, and the rest are kept as-is.
 // When ratio >= 100, all messages are returned for compaction.
 // When ratio <= 0 or totalInputTokens <= 0 or messages is empty, nil is returned (no compaction).
-func splitByRatio(messages []sqlc.ListUncompactedMessagesBySessionRow, totalInputTokens, ratio int) []sqlc.ListUncompactedMessagesBySessionRow {
+func splitByRatio(messages []dbsqlc.ListUncompactedMessagesBySessionRow, totalInputTokens, ratio int) []dbsqlc.ListUncompactedMessagesBySessionRow {
 	if ratio <= 0 || totalInputTokens <= 0 || len(messages) == 0 {
 		return nil
 	}
@@ -305,7 +304,7 @@ func splitByRatio(messages []sqlc.ListUncompactedMessagesBySessionRow, totalInpu
 // splitByTarget returns the oldest messages to compact so that the remaining
 // newest messages fit within targetTokens. This is used for synchronous
 // compaction where the goal is to reduce context to a specific size.
-func splitByTarget(messages []sqlc.ListUncompactedMessagesBySessionRow, targetTokens int) []sqlc.ListUncompactedMessagesBySessionRow {
+func splitByTarget(messages []dbsqlc.ListUncompactedMessagesBySessionRow, targetTokens int) []dbsqlc.ListUncompactedMessagesBySessionRow {
 	if targetTokens <= 0 || len(messages) == 0 {
 		return nil
 	}
@@ -329,7 +328,7 @@ type usagePayload struct {
 	OutputTokens *int `json:"output_tokens"`
 }
 
-func estimateRowTokens(m sqlc.ListUncompactedMessagesBySessionRow) int {
+func estimateRowTokens(m dbsqlc.ListUncompactedMessagesBySessionRow) int {
 	if len(m.Usage) > 0 {
 		var u usagePayload
 		if json.Unmarshal(m.Usage, &u) == nil && u.OutputTokens != nil && *u.OutputTokens > 0 {
@@ -341,7 +340,7 @@ func estimateRowTokens(m sqlc.ListUncompactedMessagesBySessionRow) int {
 
 // trimCompactMessages trims the compaction input from the tail (oldest)
 // so the total estimated tokens stay within maxTokens.
-func trimCompactMessages(messages []sqlc.ListUncompactedMessagesBySessionRow, maxTokens int) []sqlc.ListUncompactedMessagesBySessionRow {
+func trimCompactMessages(messages []dbsqlc.ListUncompactedMessagesBySessionRow, maxTokens int) []dbsqlc.ListUncompactedMessagesBySessionRow {
 	if len(messages) == 0 || maxTokens <= 0 {
 		return messages
 	}

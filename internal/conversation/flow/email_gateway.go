@@ -11,7 +11,7 @@ import (
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/db"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 const emailTriggerTokenTTL = 10 * time.Minute
@@ -19,12 +19,12 @@ const emailTriggerTokenTTL = 10 * time.Minute
 // EmailChatGateway implements email.ChatTriggerer by delegating to the Resolver.
 type EmailChatGateway struct {
 	resolver  *Resolver
-	queries   dbstore.Queries
+	queries   *dbsqlc.Queries
 	jwtSecret string
 	logger    *slog.Logger
 }
 
-func NewEmailChatGateway(resolver *Resolver, queries dbstore.Queries, jwtSecret string, logger *slog.Logger) *EmailChatGateway {
+func NewEmailChatGateway(resolver *Resolver, queries *dbsqlc.Queries, jwtSecret string, logger *slog.Logger) *EmailChatGateway {
 	return &EmailChatGateway{
 		resolver:  resolver,
 		queries:   queries,

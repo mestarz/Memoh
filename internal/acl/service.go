@@ -13,8 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 var (
@@ -24,11 +23,11 @@ var (
 )
 
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -61,7 +60,7 @@ func (s *Service) Evaluate(ctx context.Context, req EvaluateRequest) (bool, erro
 		return false, err
 	}
 
-	effect, err := s.queries.EvaluateBotACLRule(ctx, sqlc.EvaluateBotACLRuleParams{
+	effect, err := s.queries.EvaluateBotACLRule(ctx, dbsqlc.EvaluateBotACLRuleParams{
 		BotID:                  pgBotID,
 		Action:                 ActionChatTrigger,
 		ChannelIdentityID:      optionalUUID(channelIdentityID),
@@ -109,7 +108,7 @@ func (s *Service) SetDefaultEffect(ctx context.Context, botID, effect string) er
 	if err != nil {
 		return err
 	}
-	return s.queries.SetBotACLDefaultEffect(ctx, sqlc.SetBotACLDefaultEffectParams{
+	return s.queries.SetBotACLDefaultEffect(ctx, dbsqlc.SetBotACLDefaultEffectParams{
 		ID:               pgBotID,
 		AclDefaultEffect: effect,
 	})
@@ -158,7 +157,7 @@ func (s *Service) CreateRule(ctx context.Context, botID, createdByUserID string,
 	if err != nil {
 		return Rule{}, err
 	}
-	row, err := s.queries.CreateBotACLRule(ctx, sqlc.CreateBotACLRuleParams{
+	row, err := s.queries.CreateBotACLRule(ctx, dbsqlc.CreateBotACLRuleParams{
 		BotID:                  pgBotID,
 		Priority:               req.Priority,
 		Enabled:                req.Enabled,
@@ -202,7 +201,7 @@ func (s *Service) UpdateRule(ctx context.Context, ruleID string, req UpdateRuleR
 	if err != nil {
 		return Rule{}, err
 	}
-	row, err := s.queries.UpdateBotACLRule(ctx, sqlc.UpdateBotACLRuleParams{
+	row, err := s.queries.UpdateBotACLRule(ctx, dbsqlc.UpdateBotACLRuleParams{
 		ID:                     pgRuleID,
 		Priority:               req.Priority,
 		Enabled:                req.Enabled,
@@ -268,7 +267,7 @@ func (s *Service) ReorderRules(ctx context.Context, items []ReorderItem) error {
 		if err != nil {
 			return err
 		}
-		if err := s.queries.UpdateBotACLRulePriority(ctx, sqlc.UpdateBotACLRulePriorityParams{
+		if err := s.queries.UpdateBotACLRulePriority(ctx, dbsqlc.UpdateBotACLRulePriorityParams{
 			ID:       pgID,
 			Priority: item.Priority,
 		}); err != nil {
@@ -292,7 +291,7 @@ func (s *Service) ListObservedConversationsByChannelIdentity(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListObservedConversationsByChannelIdentity(ctx, sqlc.ListObservedConversationsByChannelIdentityParams{
+	rows, err := s.queries.ListObservedConversationsByChannelIdentity(ctx, dbsqlc.ListObservedConversationsByChannelIdentityParams{
 		BotID:             pgBotID,
 		ChannelIdentityID: pgIdentityID,
 	})
@@ -328,7 +327,7 @@ func (s *Service) ListObservedConversationsByChannelType(ctx context.Context, bo
 	if channelType == "" {
 		return nil, errors.New("channel_type is required")
 	}
-	rows, err := s.queries.ListObservedConversationsByChannelType(ctx, sqlc.ListObservedConversationsByChannelTypeParams{
+	rows, err := s.queries.ListObservedConversationsByChannelType(ctx, dbsqlc.ListObservedConversationsByChannelTypeParams{
 		BotID:       pgBotID,
 		ChannelType: channelType,
 	})
@@ -433,7 +432,7 @@ func timeFromPg(value pgtype.Timestamptz) time.Time {
 	return time.Time{}
 }
 
-func ruleFromListRow(row sqlc.ListBotACLRulesRow) Rule {
+func ruleFromListRow(row dbsqlc.ListBotACLRulesRow) Rule {
 	rule := Rule{
 		ID:                         uuid.UUID(row.ID.Bytes).String(),
 		BotID:                      uuid.UUID(row.BotID.Bytes).String(),
@@ -464,7 +463,7 @@ func ruleFromListRow(row sqlc.ListBotACLRulesRow) Rule {
 	return rule
 }
 
-func ruleFromWrite(row sqlc.CreateBotACLRuleRow) Rule {
+func ruleFromWrite(row dbsqlc.CreateBotACLRuleRow) Rule {
 	rule := Rule{
 		ID:                 uuid.UUID(row.ID.Bytes).String(),
 		BotID:              uuid.UUID(row.BotID.Bytes).String(),
@@ -485,7 +484,7 @@ func ruleFromWrite(row sqlc.CreateBotACLRuleRow) Rule {
 	return rule
 }
 
-func ruleFromUpdateRow(row sqlc.UpdateBotACLRuleRow) Rule {
+func ruleFromUpdateRow(row dbsqlc.UpdateBotACLRuleRow) Rule {
 	rule := Rule{
 		ID:                 uuid.UUID(row.ID.Bytes).String(),
 		BotID:              uuid.UUID(row.BotID.Bytes).String(),

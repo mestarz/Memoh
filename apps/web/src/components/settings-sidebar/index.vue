@@ -1,14 +1,6 @@
 <template>
   <aside class="relative h-full">
-    <header
-      v-if="topInset"
-      class="fixed top-0 left-0 z-20 h-9 w-(--sidebar-width) bg-sidebar border-r border-sidebar-border [-webkit-app-region:drag]"
-    />
-
-    <Sidebar
-      :collapsible="topInset ? 'none' : 'icon'"
-      :class="topInset ? 'pt-9 h-dvh border-r border-sidebar-border' : ''"
-    >
+    <Sidebar collapsible="icon">
       <SidebarHeader
         v-if="!hideHeader"
         class="p-0 border-0"
@@ -53,13 +45,13 @@
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarRail v-if="!topInset" />
+      <SidebarRail />
     </Sidebar>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, type Component } from 'vue'
+import { computed, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -76,7 +68,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@memohai/ui'
-import { DesktopShellKey } from '@/lib/desktop-shell'
 
 const props = withDefaults(defineProps<{
   hideHeader?: boolean
@@ -85,8 +76,6 @@ const props = withDefaults(defineProps<{
   hideHeader: false,
   excludeItems: () => [],
 })
-
-const topInset = inject(DesktopShellKey, false)
 
 const router = useRouter()
 const route = useRoute()

@@ -11,8 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/acl"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // fakeRow implements pgx.Row with a custom scan function.
@@ -24,7 +23,7 @@ func (r *fakeRow) Scan(dest ...any) error {
 	return r.scanFunc(dest...)
 }
 
-// fakeDBTX implements sqlc.DBTX for unit testing.
+// fakeDBTX implements dbsqlc.DBTX for unit testing.
 type fakeDBTX struct {
 	queryRowFunc func(ctx context.Context, sql string, args ...any) pgx.Row
 }
@@ -44,7 +43,7 @@ func (d *fakeDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.Ro
 	return &fakeRow{scanFunc: func(_ ...any) error { return pgx.ErrNoRows }}
 }
 
-// makeBotRow creates a fakeRow that populates a sqlc.GetBotByIDRow via Scan.
+// makeBotRow creates a fakeRow that populates a dbsqlc.GetBotByIDRow via Scan.
 // Column order: id, owner_user_id, display_name, avatar_url, timezone, is_active, status,
 // language, reasoning_enabled, reasoning_effort,
 // chat_model_id, search_provider_id, memory_provider_id,
@@ -133,7 +132,7 @@ func TestAuthorizeAccess(t *testing.T) {
 					return makeBotRow(botUUID, ownerUUID)
 				},
 			}
-			svc := NewService(nil, postgresstore.NewQueries(sqlc.New(db)))
+			svc := NewService(nil, dbsqlc.New(db))
 
 			_, err := svc.AuthorizeAccess(context.Background(), tt.userID, botID, tt.isAdmin)
 			if tt.wantErr {
@@ -168,7 +167,7 @@ func TestCreateRejectsUnknownACLPreset(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, postgresstore.NewQueries(sqlc.New(db)))
+	svc := NewService(nil, dbsqlc.New(db))
 	_, err := svc.Create(context.Background(), ownerUUID.String(), CreateBotRequest{
 		DisplayName: "test-bot",
 		AclPreset:   "not_a_real_preset",

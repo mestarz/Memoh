@@ -14,8 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/httpproxy"
 )
 
@@ -29,7 +28,7 @@ const (
 // table. It maintains an in-memory cache for hot-path lookups (e.g. proxy
 // resolution on every outbound request).
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 
 	mu       sync.RWMutex
@@ -39,7 +38,7 @@ type Service struct {
 
 // NewService constructs the Service. The provided queries handle is required;
 // passing nil causes Get/Set to return an error.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	return &Service{
 		queries: queries,
 		logger:  log.With(slog.String("service", "appsettings")),
@@ -110,7 +109,7 @@ func (s *Service) setString(ctx context.Context, key, value string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.queries.UpsertAppSetting(ctx, sqlc.UpsertAppSettingParams{
+	if _, err := s.queries.UpsertAppSetting(ctx, dbsqlc.UpsertAppSettingParams{
 		Key:   key,
 		Value: encoded,
 	}); err != nil {

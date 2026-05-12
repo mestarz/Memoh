@@ -208,7 +208,7 @@ func Tavily(ctx context.Context, configJSON []byte, providerID string, query str
 	}
 
 	actual, _ := tavilyKeyCounters.LoadOrStore(providerID, new(atomic.Uint64))
-	startIdx := int(actual.(*atomic.Uint64).Add(1) % uint64(len(pool)))
+	startIdx := int(actual.(*atomic.Uint64).Add(1) % uint64(len(pool))) //nolint:gosec // result is bounded by len(pool).
 
 	result, err := tavilyTryPool(ctx, endpoint, pool, providerID, startIdx, query, count, timeout)
 	if errors.Is(err, errAllKeysExhausted) {

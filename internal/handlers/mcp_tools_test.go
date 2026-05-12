@@ -51,7 +51,7 @@ func TestHandleMCPToolsWithoutGateway(t *testing.T) {
 	c.SetParamNames("bot_id")
 	c.SetParamValues("bot-1")
 
-	handler := &ContainerdHandler{}
+	handler := &WorkspaceContainerHandler{}
 	err := handler.HandleMCPTools(c)
 	if err == nil {
 		t.Fatalf("expected service unavailable error")
@@ -103,7 +103,7 @@ func TestHandleMCPToolsWithGatewayAcceptCompatibility(t *testing.T) {
 	e := echo.New()
 	executor := &mcpToolsTestExecutor{}
 	toolGateway := mcpgw.NewToolGatewayService(slog.Default(), []mcpgw.ToolSource{executor})
-	handler := &ContainerdHandler{
+	handler := &WorkspaceContainerHandler{
 		logger:      slog.Default(),
 		toolGateway: toolGateway,
 	}

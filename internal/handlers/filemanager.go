@@ -91,7 +91,7 @@ func isContainerMediaPath(containerPath string) bool {
 }
 
 // getGRPCClient returns the gRPC client for the bot's container.
-func (h *ContainerdHandler) getGRPCClient(ctx context.Context, botID string) (*bridge.Client, error) {
+func (h *WorkspaceContainerHandler) getGRPCClient(ctx context.Context, botID string) (*bridge.Client, error) {
 	return h.manager.MCPClient(ctx, botID)
 }
 
@@ -137,7 +137,7 @@ func fsHTTPError(err error) *echo.HTTPError {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs [get].
-func (h *ContainerdHandler) FSStat(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSStat(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func (h *ContainerdHandler) FSStat(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/list [get].
-func (h *ContainerdHandler) FSList(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSList(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (h *ContainerdHandler) FSList(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/read [get].
-func (h *ContainerdHandler) FSRead(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSRead(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -293,7 +293,7 @@ func (h *ContainerdHandler) FSRead(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/download [get].
-func (h *ContainerdHandler) FSDownload(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSDownload(c echo.Context) error {
 	rawPath := c.QueryParam("path")
 	if strings.TrimSpace(rawPath) == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "path is required")
@@ -351,7 +351,7 @@ func (h *ContainerdHandler) FSDownload(c echo.Context) error {
 // @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/write [post].
-func (h *ContainerdHandler) FSWrite(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSWrite(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -395,7 +395,7 @@ func (h *ContainerdHandler) FSWrite(c echo.Context) error {
 // @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/upload [post].
-func (h *ContainerdHandler) FSUpload(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSUpload(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -448,7 +448,7 @@ func (h *ContainerdHandler) FSUpload(c echo.Context) error {
 // @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/mkdir [post].
-func (h *ContainerdHandler) FSMkdir(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSMkdir(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -491,7 +491,7 @@ func (h *ContainerdHandler) FSMkdir(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/delete [post].
-func (h *ContainerdHandler) FSDelete(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSDelete(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -538,7 +538,7 @@ func (h *ContainerdHandler) FSDelete(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/fs/rename [post].
-func (h *ContainerdHandler) FSRename(c echo.Context) error {
+func (h *WorkspaceContainerHandler) FSRename(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err

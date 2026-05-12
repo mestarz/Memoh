@@ -12,13 +12,12 @@ import (
 )
 
 type RuntimeConfig struct {
-	JwtSecret            string `json:"-"`
-	JwtExpiresIn         time.Duration
-	ServerAddr           string
-	ContainerdSocketPath string
-	ContainerBackend     string // "docker", "kubernetes", "containerd", or "apple"
-	Timezone             string
-	TimezoneLocation     *time.Location
+	JwtSecret        string `json:"-"`
+	JwtExpiresIn     time.Duration
+	ServerAddr       string
+	ContainerBackend string // only "docker" is supported
+	Timezone         string
+	TimezoneLocation *time.Location
 }
 
 func ProvideRuntimeConfig(cfg config.Config) (*RuntimeConfig, error) {
@@ -33,7 +32,10 @@ func ProvideRuntimeConfig(cfg config.Config) (*RuntimeConfig, error) {
 
 	backend := normalizeContainerBackend(cfg.Container.Backend)
 	if backend == "" {
-		return nil, errors.New("container backend is required; set [container].backend to docker, kubernetes, containerd, or apple")
+		return nil, errors.New(`container backend is required; set [container].backend = "docker"`)
+	}
+	if backend != "docker" {
+		return nil, fmt.Errorf(`unsupported container backend %q; only "docker" is supported`, backend)
 	}
 
 	tzName := strings.TrimSpace(cfg.Timezone)
@@ -46,32 +48,20 @@ func ProvideRuntimeConfig(cfg config.Config) (*RuntimeConfig, error) {
 	}
 
 	ret := &RuntimeConfig{
-		JwtSecret:            cfg.Auth.JWTSecret,
-		JwtExpiresIn:         jwtExpiresIn,
-		ServerAddr:           cfg.Server.Addr,
-		ContainerdSocketPath: cfg.Containerd.SocketPath,
-		ContainerBackend:     backend,
-		Timezone:             resolvedTZ,
-		TimezoneLocation:     tzLocation,
+		JwtSecret:        cfg.Auth.JWTSecret,
+		JwtExpiresIn:     jwtExpiresIn,
+		ServerAddr:       cfg.Server.Addr,
+		ContainerBackend: backend,
+		Timezone:         resolvedTZ,
+		TimezoneLocation: tzLocation,
 	}
 
 	if value := os.Getenv("HTTP_ADDR"); value != "" {
 		ret.ServerAddr = value
 	}
-
-	if value := os.Getenv("CONTAINERD_SOCKET"); value != "" {
-		ret.ContainerdSocketPath = value
-	}
 	return ret, nil
 }
 
 func normalizeContainerBackend(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "k8s":
-		return "kubernetes"
-	case "apple", "containerd", "kubernetes", "docker":
-		return strings.ToLower(strings.TrimSpace(value))
-	default:
-		return strings.TrimSpace(value)
-	}
+	return strings.ToLower(strings.TrimSpace(value))
 }

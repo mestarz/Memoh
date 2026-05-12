@@ -11,7 +11,7 @@ import (
 
 	"github.com/memohai/memoh/internal/agent/tools/websearch"
 	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/searchproviders"
 	"github.com/memohai/memoh/internal/settings"
 )
@@ -125,7 +125,7 @@ func callSearch(ctx context.Context, providerName, providerID string, configJSON
 
 var searchProviderSecretFields = []string{"api_key", "secret_id", "secret_key"}
 
-func registerSearchProviderSecrets(provider sqlc.SearchProvider) {
+func registerSearchProviderSecrets(provider dbsqlc.SearchProvider) {
 	var cfg map[string]any
 	if len(provider.Config) > 0 {
 		_ = json.Unmarshal(provider.Config, &cfg)
@@ -139,9 +139,7 @@ func registerSearchProviderSecrets(provider sqlc.SearchProvider) {
 			secrets = append(secrets, strings.TrimSpace(v))
 		}
 	}
-	for _, key := range websearch.TavilyAPIKeyPool(cfg) {
-		secrets = append(secrets, key)
-	}
+	secrets = append(secrets, websearch.TavilyAPIKeyPool(cfg)...)
 	if len(secrets) > 0 {
 		channel.SetIMErrorSecrets("search:"+provider.ID.String(), secrets...)
 	}

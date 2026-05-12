@@ -17,13 +17,13 @@ import (
 )
 
 type MCPFederationGateway struct {
-	handler      *ContainerdHandler
+	handler      *WorkspaceContainerHandler
 	logger       *slog.Logger
 	client       *http.Client
 	oauthService *mcpgw.OAuthService
 }
 
-func NewMCPFederationGateway(log *slog.Logger, handler *ContainerdHandler) *MCPFederationGateway {
+func NewMCPFederationGateway(log *slog.Logger, handler *WorkspaceContainerHandler) *MCPFederationGateway {
 	if log == nil {
 		log = slog.Default()
 	}

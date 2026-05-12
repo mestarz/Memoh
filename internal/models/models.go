@@ -15,8 +15,7 @@ import (
 	"github.com/memohai/memoh/internal/appsettings"
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 var (
@@ -26,13 +25,13 @@ var (
 
 // Service provides CRUD operations for models.
 type Service struct {
-	queries     dbstore.Queries
+	queries     *dbsqlc.Queries
 	logger      *slog.Logger
 	appSettings *appsettings.Service
 }
 
 // NewService creates a new models service.
-func NewService(log *slog.Logger, queries dbstore.Queries, appSettings *appsettings.Service) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, appSettings *appsettings.Service) *Service {
 	return &Service{
 		queries:     queries,
 		logger:      log.With(slog.String("service", "models")),
@@ -57,7 +56,7 @@ func (s *Service) Create(ctx context.Context, req AddRequest) (AddResponse, erro
 		return AddResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
 
-	params := sqlc.CreateModelParams{
+	params := dbsqlc.CreateModelParams{
 		ModelID:    model.ModelID,
 		ProviderID: providerID,
 		Type:       string(model.Type),
@@ -220,7 +219,7 @@ func (s *Service) ListByProviderIDAndType(ctx context.Context, providerID string
 	if err != nil {
 		return nil, fmt.Errorf("invalid provider id: %w", err)
 	}
-	dbModels, err := s.queries.ListModelsByProviderIDAndType(ctx, sqlc.ListModelsByProviderIDAndTypeParams{
+	dbModels, err := s.queries.ListModelsByProviderIDAndType(ctx, dbsqlc.ListModelsByProviderIDAndTypeParams{
 		ProviderID: uuid,
 		Type:       string(modelType),
 	})
@@ -252,7 +251,7 @@ func (s *Service) UpdateByID(ctx context.Context, id string, req UpdateRequest) 
 		return GetResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
 
-	params := sqlc.UpdateModelParams{
+	params := dbsqlc.UpdateModelParams{
 		ID:         uuid,
 		ModelID:    model.ModelID,
 		ProviderID: providerID,
@@ -300,7 +299,7 @@ func (s *Service) UpdateByModelID(ctx context.Context, modelID string, req Updat
 		return GetResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
 
-	params := sqlc.UpdateModelParams{
+	params := dbsqlc.UpdateModelParams{
 		ID:         current.ID,
 		ModelID:    model.ModelID,
 		ProviderID: providerID,
@@ -376,7 +375,7 @@ func (s *Service) CountByType(ctx context.Context, modelType ModelType) (int64, 
 	return count, nil
 }
 
-func (s *Service) convertToGetResponse(dbModel sqlc.Model) GetResponse {
+func (s *Service) convertToGetResponse(dbModel dbsqlc.Model) GetResponse {
 	resp := GetResponse{
 		ID:      dbModel.ID.String(),
 		ModelID: dbModel.ModelID,
@@ -403,7 +402,7 @@ func (s *Service) convertToGetResponse(dbModel sqlc.Model) GetResponse {
 	return resp
 }
 
-func (s *Service) convertToGetResponseList(dbModels []sqlc.Model) []GetResponse {
+func (s *Service) convertToGetResponseList(dbModels []dbsqlc.Model) []GetResponse {
 	responses := make([]GetResponse, 0, len(dbModels))
 	for _, dbModel := range dbModels {
 		responses = append(responses, s.convertToGetResponse(dbModel))
@@ -411,16 +410,16 @@ func (s *Service) convertToGetResponseList(dbModels []sqlc.Model) []GetResponse 
 	return responses
 }
 
-func (s *Service) findUniqueByModelID(ctx context.Context, modelID string) (sqlc.Model, error) {
+func (s *Service) findUniqueByModelID(ctx context.Context, modelID string) (dbsqlc.Model, error) {
 	rows, err := s.queries.ListModelsByModelID(ctx, modelID)
 	if err != nil {
-		return sqlc.Model{}, err
+		return dbsqlc.Model{}, err
 	}
 	if len(rows) == 0 {
-		return sqlc.Model{}, pgx.ErrNoRows
+		return dbsqlc.Model{}, pgx.ErrNoRows
 	}
 	if len(rows) > 1 {
-		return sqlc.Model{}, ErrModelIDAmbiguous
+		return dbsqlc.Model{}, ErrModelIDAmbiguous
 	}
 	return rows[0], nil
 }
@@ -465,21 +464,21 @@ func IsLLMClientType(clientType ClientType) bool {
 
 // SelectMemoryModel selects a chat model for memory operations.
 // It only considers models from enabled providers.
-func SelectMemoryModel(ctx context.Context, modelsService *Service, queries dbstore.Queries) (GetResponse, sqlc.Provider, error) {
+func SelectMemoryModel(ctx context.Context, modelsService *Service, queries *dbsqlc.Queries) (GetResponse, dbsqlc.Provider, error) {
 	if modelsService == nil {
-		return GetResponse{}, sqlc.Provider{}, errors.New("models service not configured")
+		return GetResponse{}, dbsqlc.Provider{}, errors.New("models service not configured")
 	}
 	if queries == nil {
-		return GetResponse{}, sqlc.Provider{}, errors.New("queries not configured")
+		return GetResponse{}, dbsqlc.Provider{}, errors.New("queries not configured")
 	}
 	candidates, err := modelsService.ListEnabledByType(ctx, ModelTypeChat)
 	if err != nil || len(candidates) == 0 {
-		return GetResponse{}, sqlc.Provider{}, errors.New("no enabled chat models available for memory operations")
+		return GetResponse{}, dbsqlc.Provider{}, errors.New("no enabled chat models available for memory operations")
 	}
 	selected := candidates[0]
 	provider, err := FetchProviderByID(ctx, queries, selected.ProviderID)
 	if err != nil {
-		return GetResponse{}, sqlc.Provider{}, err
+		return GetResponse{}, dbsqlc.Provider{}, err
 	}
 	return selected, provider, nil
 }
@@ -487,7 +486,7 @@ func SelectMemoryModel(ctx context.Context, modelsService *Service, queries dbst
 // SelectMemoryModelForBot selects a chat model for memory operations.
 // If botID is provided, it attempts to use the bot's configured chat model first,
 // falling back to the first enabled chat model globally.
-func SelectMemoryModelForBot(ctx context.Context, modelsService *Service, queries dbstore.Queries, chatModelID string) (GetResponse, sqlc.Provider, error) {
+func SelectMemoryModelForBot(ctx context.Context, modelsService *Service, queries *dbsqlc.Queries, chatModelID string) (GetResponse, dbsqlc.Provider, error) {
 	// If a specific model is configured (e.g. bot's chat_model_id), try to use it.
 	if chatModelID = strings.TrimSpace(chatModelID); chatModelID != "" {
 		model, err := modelsService.GetByModelID(ctx, chatModelID)
@@ -511,17 +510,17 @@ func SelectMemoryModelForBot(ctx context.Context, modelsService *Service, querie
 }
 
 // FetchProviderByID fetches a provider by ID.
-func FetchProviderByID(ctx context.Context, queries dbstore.Queries, providerID string) (sqlc.Provider, error) {
+func FetchProviderByID(ctx context.Context, queries *dbsqlc.Queries, providerID string) (dbsqlc.Provider, error) {
 	if strings.TrimSpace(providerID) == "" {
-		return sqlc.Provider{}, errors.New("provider id missing")
+		return dbsqlc.Provider{}, errors.New("provider id missing")
 	}
 	parsed, err := db.ParseUUID(providerID)
 	if err != nil {
-		return sqlc.Provider{}, err
+		return dbsqlc.Provider{}, err
 	}
 	provider, err := queries.GetProviderByID(ctx, parsed)
 	if err != nil {
-		return sqlc.Provider{}, err
+		return dbsqlc.Provider{}, err
 	}
 	apiKey := providerConfigString(provider.Config, "api_key")
 	if strings.TrimSpace(apiKey) != "" {

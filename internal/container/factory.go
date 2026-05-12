@@ -1,21 +1,10 @@
 package container
 
-const (
-	DefaultSocketPath = "/run/containerd/containerd.sock"
-	DefaultNamespace  = "default"
-
-	BackendContainerd = "containerd"
-	BackendApple      = "apple"
-	BackendKubernetes = "kubernetes"
-	BackendK8s        = "k8s"
-	BackendDocker     = "docker"
-)
+// Only the Docker workspace backend is supported. Other backends
+// (containerd, kubernetes, apple) were removed when the server moved to a
+// host-process deployment model.
+const BackendDocker = "docker"
 
 func NormalizeBackend(backend string) string {
-	switch backend {
-	case BackendK8s:
-		return BackendKubernetes
-	default:
-		return backend
-	}
+	return backend
 }

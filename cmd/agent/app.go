@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,9 +52,7 @@ import (
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/conversation/flow"
 	"github.com/memohai/memoh/internal/db"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	sqlitestore "github.com/memohai/memoh/internal/db/sqlite/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	emailpkg "github.com/memohai/memoh/internal/email"
 	emailgeneric "github.com/memohai/memoh/internal/email/adapters/generic"
 	emailgmail "github.com/memohai/memoh/internal/email/adapters/gmail"
@@ -81,7 +78,6 @@ import (
 	"github.com/memohai/memoh/internal/messaging"
 	"github.com/memohai/memoh/internal/models"
 	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/kubeapi"
 	netoverlay "github.com/memohai/memoh/internal/network/overlay"
 	pipelinepkg "github.com/memohai/memoh/internal/pipeline"
 	"github.com/memohai/memoh/internal/policy"
@@ -152,39 +148,11 @@ func provideDBConn(lc fx.Lifecycle, cfg config.Config) (*pgxpool.Pool, error) {
 	return conn, nil
 }
 
-func provideSQLiteConn(lc fx.Lifecycle, cfg config.Config) (*sql.DB, error) {
-	if db.DriverFromConfig(cfg) != db.DriverSQLite {
-		return nil, nil
-	}
-	conn, err := db.OpenSQLite(context.Background(), cfg.SQLite)
-	if err != nil {
-		return nil, fmt.Errorf("sqlite connect: %w", err)
-	}
-	lc.Append(fx.Hook{
-		OnStop: func(_ context.Context) error {
-			return conn.Close()
-		},
-	})
-	return conn, nil
-}
-
-func providePostgresStore(conn *pgxpool.Pool) (*postgresstore.Store, error) {
-	if conn == nil {
-		return nil, nil
-	}
-	return postgresstore.New(conn)
-}
-
 func provideOverlayProviderRegistry(service ctr.Service, cfg config.Config, rc *boot.RuntimeConfig) *netctl.Registry {
 	registry := netctl.NewRegistry()
 	runtime := netctl.NewContainerRuntimeFromBackend(rc.ContainerBackend, service)
-	var kubeRuntime kubeapi.Runtime
-	if rt, ok := service.(kubeapi.Runtime); ok {
-		kubeRuntime = rt
-	}
 	if err := netoverlay.RegisterBuiltinProviders(registry, netoverlay.ProviderDeps{
 		SidecarRuntime: service,
-		KubeRuntime:    kubeRuntime,
 		Runtime:        runtime.Descriptor(),
 		StateRoot:      cfg.Workspace.DataRoot,
 	}); err != nil {
@@ -193,56 +161,29 @@ func provideOverlayProviderRegistry(service ctr.Service, cfg config.Config, rc *
 	return registry
 }
 
-func provideNetworkService(log *slog.Logger, queries dbstore.Queries, registry *netctl.Registry, service ctr.Service, rc *boot.RuntimeConfig, cfg config.Config) *netctl.Service {
-	return netctl.NewService(log, queries, registry, service, rc.ContainerBackend, cfg.Workspace.CNIBinaryDir, cfg.Workspace.CNIConfigDir, cfg.Workspace.DataRoot)
+func provideNetworkService(log *slog.Logger, queries *dbsqlc.Queries, registry *netctl.Registry, service ctr.Service, _ *boot.RuntimeConfig, cfg config.Config) *netctl.Service {
+	return netctl.NewService(log, queries, registry, service, cfg.Workspace.CNIBinaryDir, cfg.Workspace.CNIConfigDir, cfg.Workspace.DataRoot)
 }
 
-func provideSQLiteStore(conn *sql.DB) (*sqlitestore.Store, error) {
+func provideDBQueries(conn *pgxpool.Pool) (*dbsqlc.Queries, error) {
 	if conn == nil {
-		return nil, nil
+		return nil, errors.New("postgres pool not configured")
 	}
-	return sqlitestore.New(conn)
+	return dbsqlc.New(conn), nil
 }
 
-func provideDBQueries(cfg config.Config, postgresStore *postgresstore.Store, sqliteStore *sqlitestore.Store) (dbstore.Queries, error) {
-	switch db.DriverFromConfig(cfg) {
-	case db.DriverPostgres:
-		if postgresStore == nil {
-			return nil, errors.New("postgres store not configured")
-		}
-		return postgresstore.NewQueries(postgresStore.SQLC()), nil
-	case db.DriverSQLite:
-		if sqliteStore == nil {
-			return nil, errors.New("sqlite store not configured")
-		}
-		return sqlitestore.NewQueries(sqliteStore), nil
-	default:
-		return nil, fmt.Errorf("unsupported database driver %q", db.DriverFromConfig(cfg))
+func provideAccountStore(queries *dbsqlc.Queries) (accounts.AccountStore, error) {
+	if queries == nil {
+		return nil, errors.New("postgres queries not configured")
 	}
-}
-
-func provideAccountStore(cfg config.Config, postgresStore *postgresstore.Store, sqliteStore *sqlitestore.Store) (dbstore.AccountStore, error) {
-	switch db.DriverFromConfig(cfg) {
-	case db.DriverPostgres:
-		if postgresStore == nil {
-			return nil, errors.New("postgres account store not configured")
-		}
-		return postgresStore, nil
-	case db.DriverSQLite:
-		if sqliteStore == nil {
-			return nil, errors.New("sqlite account store not configured")
-		}
-		return sqliteStore, nil
-	default:
-		return nil, fmt.Errorf("unsupported database driver %q", db.DriverFromConfig(cfg))
-	}
+	return accounts.NewPostgresStore(queries), nil
 }
 
 func provideBridgeProvider(manage *workspace.Manager) bridge.Provider {
 	return manage
 }
 
-func provideWorkspaceManager(lc fx.Lifecycle, log *slog.Logger, service ctr.Service, networkController netctl.Controller, cfg config.Config, conn *pgxpool.Pool, queries dbstore.Queries) *workspace.Manager {
+func provideWorkspaceManager(lc fx.Lifecycle, log *slog.Logger, service ctr.Service, networkController netctl.Controller, cfg config.Config, conn *pgxpool.Pool, queries *dbsqlc.Queries) *workspace.Manager {
 	localSvc := workspace.NewLocalService(log, cfg.Local, cfg.Workspace.DataRoot)
 	lc.Append(fx.Hook{
 		OnStop: func(context.Context) error {
@@ -251,10 +192,10 @@ func provideWorkspaceManager(lc fx.Lifecycle, log *slog.Logger, service ctr.Serv
 		},
 	})
 	runtimeSvc := workspace.NewRuntimeRouter(service, localSvc)
-	return workspace.NewManager(log, runtimeSvc, networkController, cfg.Workspace, cfg.Containerd.Namespace, conn, queries)
+	return workspace.NewManager(log, runtimeSvc, networkController, cfg.Workspace, "", conn, queries)
 }
 
-func provideMemoryLLM(modelsService *models.Service, settingsService *settings.Service, queries dbstore.Queries, log *slog.Logger) memprovider.LLM {
+func provideMemoryLLM(modelsService *models.Service, settingsService *settings.Service, queries *dbsqlc.Queries, log *slog.Logger) memprovider.LLM {
 	return &lazyLLMClient{
 		modelsService:   modelsService,
 		settingsService: settingsService,
@@ -264,7 +205,7 @@ func provideMemoryLLM(modelsService *models.Service, settingsService *settings.S
 	}
 }
 
-func provideMemoryProviderRegistry(log *slog.Logger, llm memprovider.LLM, chatService *conversation.Service, accountService *accounts.Service, provider bridge.Provider, queries dbstore.Queries, cfg config.Config) *memprovider.Registry {
+func provideMemoryProviderRegistry(log *slog.Logger, llm memprovider.LLM, chatService *conversation.Service, accountService *accounts.Service, provider bridge.Provider, queries *dbsqlc.Queries, cfg config.Config) *memprovider.Registry {
 	registry := memprovider.NewRegistry(log)
 	fileRuntime := handlers.NewBuiltinMemoryRuntime(provider)
 	fileStore := storefs.New(log, provider)
@@ -294,7 +235,7 @@ func providePipeline() *pipelinepkg.Pipeline {
 	return pipelinepkg.NewPipeline(pipelinepkg.RenderParams{})
 }
 
-func provideEventStore(log *slog.Logger, queries dbstore.Queries) *pipelinepkg.EventStore {
+func provideEventStore(log *slog.Logger, queries *dbsqlc.Queries) *pipelinepkg.EventStore {
 	return pipelinepkg.NewEventStore(log, queries)
 }
 
@@ -308,15 +249,15 @@ func provideDiscussDriver(log *slog.Logger, pipeline *pipelinepkg.Pipeline, even
 	})
 }
 
-func provideRouteService(log *slog.Logger, queries dbstore.Queries, chatService *conversation.Service) *route.DBService {
+func provideRouteService(log *slog.Logger, queries *dbsqlc.Queries, chatService *conversation.Service) *route.DBService {
 	return route.NewService(log, queries, chatService)
 }
 
-func provideSessionService(log *slog.Logger, queries dbstore.Queries) *sessionpkg.Service {
+func provideSessionService(log *slog.Logger, queries *dbsqlc.Queries) *sessionpkg.Service {
 	return sessionpkg.NewService(log, queries)
 }
 
-func provideMessageService(log *slog.Logger, queries dbstore.Queries, hub *event.Hub) *message.DBService {
+func provideMessageService(log *slog.Logger, queries *dbsqlc.Queries, hub *event.Hub) *message.DBService {
 	return message.NewService(log, queries, hub)
 }
 
@@ -370,11 +311,11 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 	}
 }
 
-func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, appSettingsSvc *appsettings.Service) *flow.Resolver {
+func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries *dbsqlc.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, workspaceHandler *handlers.WorkspaceContainerHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, appSettingsSvc *appsettings.Service) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetAppSettings(appSettingsSvc)
-	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
+	resolver.SetSkillLoader(&skillLoaderAdapter{handler: workspaceHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
 	resolver.SetChannelStore(channelStore)
 	resolver.SetRouteService(routeService)
@@ -477,8 +418,8 @@ func provideChannelRouter(
 	emailOutboxService *emailpkg.OutboxService,
 	heartbeatService *heartbeat.Service,
 	compactionService *compaction.Service,
-	queries dbstore.Queries,
-	containerdHandler *handlers.ContainerdHandler,
+	queries *dbsqlc.Queries,
+	workspaceHandler *handlers.WorkspaceContainerHandler,
 	provider bridge.Provider,
 	pipeline *pipelinepkg.Pipeline,
 	eventStore *pipelinepkg.EventStore,
@@ -523,7 +464,7 @@ func provideChannelRouter(
 		heartbeatService,
 		queries,
 		aclService,
-		&commandSkillLoaderAdapter{handler: containerdHandler},
+		&commandSkillLoaderAdapter{handler: workspaceHandler},
 		&commandContainerFSAdapter{provider: provider},
 	)
 	cmdHandler.SetCompactionService(compactionService, queries)
@@ -550,15 +491,15 @@ func provideChannelLifecycleService(channelStore *channel.Store, channelManager 
 	return channel.NewLifecycle(channelStore, channelManager)
 }
 
-func provideContainerdHandler(log *slog.Logger, manager *workspace.Manager, cfg config.Config, rc *boot.RuntimeConfig, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *handlers.ContainerdHandler {
-	return handlers.NewContainerdHandler(log, manager, cfg.Workspace, rc.ContainerBackend, botService, accountService, policyService)
+func provideWorkspaceContainerHandler(log *slog.Logger, manager *workspace.Manager, cfg config.Config, rc *boot.RuntimeConfig, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *handlers.WorkspaceContainerHandler {
+	return handlers.NewWorkspaceContainerHandler(log, manager, cfg.Workspace, rc.ContainerBackend, botService, accountService, policyService)
 }
 
-func provideFederationGateway(log *slog.Logger, containerdHandler *handlers.ContainerdHandler) *handlers.MCPFederationGateway {
-	return handlers.NewMCPFederationGateway(log, containerdHandler)
+func provideFederationGateway(log *slog.Logger, workspaceHandler *handlers.WorkspaceContainerHandler) *handlers.MCPFederationGateway {
+	return handlers.NewMCPFederationGateway(log, workspaceHandler)
 }
 
-func provideOAuthService(log *slog.Logger, queries dbstore.Queries, cfg config.Config) *mcp.OAuthService {
+func provideOAuthService(log *slog.Logger, queries *dbsqlc.Queries, cfg config.Config) *mcp.OAuthService {
 	addr := strings.TrimSpace(cfg.Server.Addr)
 	if addr == "" {
 		addr = ":8080"
@@ -571,11 +512,11 @@ func provideOAuthService(log *slog.Logger, queries dbstore.Queries, cfg config.C
 	return mcp.NewOAuthService(log, queries, callbackURL)
 }
 
-func provideToolGatewayService(log *slog.Logger, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, mcpConnService *mcp.ConnectionService, containerdHandler *handlers.ContainerdHandler) *mcp.ToolGatewayService {
+func provideToolGatewayService(log *slog.Logger, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, mcpConnService *mcp.ConnectionService, workspaceHandler *handlers.WorkspaceContainerHandler) *mcp.ToolGatewayService {
 	fedGateway.SetOAuthService(oauthService)
 	fedSource := mcpfederation.NewSource(log, fedGateway, mcpConnService)
 	svc := mcp.NewToolGatewayService(log, []mcp.ToolSource{fedSource})
-	containerdHandler.SetToolGatewayService(svc)
+	workspaceHandler.SetToolGatewayService(svc)
 	return svc
 }
 
@@ -583,7 +524,7 @@ func provideBackgroundManager(log *slog.Logger) *background.Manager {
 	return background.New(log)
 }
 
-func provideToolProviders(log *slog.Logger, channelManager *channel.Manager, registry *channel.Registry, routeService *route.DBService, scheduleService *schedule.Service, settingsService *settings.Service, searchProviderService *searchproviders.Service, manager *workspace.Manager, mediaService *media.Service, memoryRegistry *memprovider.Registry, emailService *emailpkg.Service, emailManager *emailpkg.Manager, fedGateway *handlers.MCPFederationGateway, mcpConnService *mcp.ConnectionService, modelsService *models.Service, queries dbstore.Queries, audioService *audiopkg.Service, sessionService *sessionpkg.Service, bgManager *background.Manager) []agenttools.ToolProvider {
+func provideToolProviders(log *slog.Logger, channelManager *channel.Manager, registry *channel.Registry, routeService *route.DBService, scheduleService *schedule.Service, settingsService *settings.Service, searchProviderService *searchproviders.Service, manager *workspace.Manager, mediaService *media.Service, memoryRegistry *memprovider.Registry, emailService *emailpkg.Service, emailManager *emailpkg.Manager, fedGateway *handlers.MCPFederationGateway, mcpConnService *mcp.ConnectionService, modelsService *models.Service, queries *dbsqlc.Queries, audioService *audiopkg.Service, sessionService *sessionpkg.Service, bgManager *background.Manager) []agenttools.ToolProvider {
 	var assetResolver messaging.AssetResolver
 	if mediaService != nil {
 		assetResolver = &mediaAssetResolverAdapter{media: mediaService}
@@ -609,7 +550,7 @@ func provideToolProviders(log *slog.Logger, channelManager *channel.Manager, reg
 	}
 }
 
-func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountService *accounts.Service, _ config.Config, provider bridge.Provider, memoryRegistry *memprovider.Registry, settingsService *settings.Service, _ *handlers.ContainerdHandler) *handlers.MemoryHandler {
+func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountService *accounts.Service, _ config.Config, provider bridge.Provider, memoryRegistry *memprovider.Registry, settingsService *settings.Service, _ *handlers.WorkspaceContainerHandler) *handlers.MemoryHandler {
 	h := handlers.NewMemoryHandler(log, botService, accountService)
 	h.SetMemoryRegistry(memoryRegistry)
 	h.SetSettingsService(settingsService)
@@ -790,7 +731,7 @@ func provideEmailRegistry(log *slog.Logger, tokenStore *emailpkg.DBOAuthTokenSto
 	return reg
 }
 
-func provideProvidersService(log *slog.Logger, queries dbstore.Queries, _ config.Config, appSettings *appsettings.Service) *providers.Service {
+func provideProvidersService(log *slog.Logger, queries *dbsqlc.Queries, _ config.Config, appSettings *appsettings.Service) *providers.Service {
 	return providers.NewService(log, queries, defaultProviderOAuthCallbackURL(), appSettings)
 }
 
@@ -811,7 +752,7 @@ func provideEmailOAuthHandler(log *slog.Logger, service *emailpkg.Service, token
 	return handlers.NewEmailOAuthHandler(log, service, tokenStore, callbackURL)
 }
 
-func provideEmailChatGateway(resolver *flow.Resolver, queries dbstore.Queries, cfg config.Config, log *slog.Logger) emailpkg.ChatTriggerer {
+func provideEmailChatGateway(resolver *flow.Resolver, queries *dbsqlc.Queries, cfg config.Config, log *slog.Logger) emailpkg.ChatTriggerer {
 	return flow.NewEmailChatGateway(resolver, queries, cfg.Auth.JWTSecret, log)
 }
 
@@ -841,21 +782,21 @@ func startEmailManager(lc fx.Lifecycle, emailManager *emailpkg.Manager) {
 type serverParams struct {
 	fx.In
 
-	Logger            *slog.Logger
-	RuntimeConfig     *boot.RuntimeConfig
-	Config            config.Config
-	ServerHandlers    []server.Handler `group:"server_handlers"`
-	ContainerdHandler *handlers.ContainerdHandler
+	Logger                    *slog.Logger
+	RuntimeConfig             *boot.RuntimeConfig
+	Config                    config.Config
+	ServerHandlers            []server.Handler `group:"server_handlers"`
+	WorkspaceContainerHandler *handlers.WorkspaceContainerHandler
 }
 
 func provideServer(params serverParams) *server.Server {
 	allHandlers := make([]server.Handler, 0, len(params.ServerHandlers)+1)
 	allHandlers = append(allHandlers, params.ServerHandlers...)
-	allHandlers = append(allHandlers, params.ContainerdHandler)
+	allHandlers = append(allHandlers, params.WorkspaceContainerHandler)
 	return server.NewServer(params.Logger, params.RuntimeConfig.ServerAddr, params.Config.Auth.JWTSecret, allHandlers...)
 }
 
-func startRegistrySync(lc fx.Lifecycle, log *slog.Logger, cfg config.Config, queries dbstore.Queries) {
+func startRegistrySync(lc fx.Lifecycle, log *slog.Logger, cfg config.Config, queries *dbsqlc.Queries) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			defs, err := registry.Load(log, cfg.Registry.ProvidersPath())
@@ -871,7 +812,7 @@ func startRegistrySync(lc fx.Lifecycle, log *slog.Logger, cfg config.Config, que
 	})
 }
 
-func startAudioProviderBootstrap(lc fx.Lifecycle, log *slog.Logger, queries dbstore.Queries, registry *audiopkg.Registry) {
+func startAudioProviderBootstrap(lc fx.Lifecycle, log *slog.Logger, queries *dbsqlc.Queries, registry *audiopkg.Registry) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := audiopkg.SyncRegistry(ctx, log, queries, registry); err != nil {
@@ -951,7 +892,7 @@ func startChannelManager(lc fx.Lifecycle, channelManager *channel.Manager) {
 	})
 }
 
-func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _ *handlers.ContainerdHandler, _ *mcp.ToolGatewayService) {
+func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _ *handlers.WorkspaceContainerHandler, _ *mcp.ToolGatewayService) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go manager.ReconcileContainers(ctx)
@@ -960,7 +901,7 @@ func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _
 	})
 }
 
-func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries dbstore.Queries, accountStore dbstore.AccountStore, botService *bots.Service, _ *handlers.ContainerdHandler, manager *workspace.Manager, mcpConnService *mcp.ConnectionService, toolGateway *mcp.ToolGatewayService, channelManager *channel.Manager, modelsService *models.Service) {
+func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries *dbsqlc.Queries, accountStore accounts.AccountStore, botService *bots.Service, _ *handlers.WorkspaceContainerHandler, manager *workspace.Manager, mcpConnService *mcp.ConnectionService, toolGateway *mcp.ToolGatewayService, channelManager *channel.Manager, modelsService *models.Service) {
 	fmt.Printf("Starting Memoh Agent %s\n", version.GetInfo())
 
 	lc.Append(fx.Hook{
@@ -1000,7 +941,7 @@ func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutd
 	})
 }
 
-func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore.AccountStore, cfg config.Config) error {
+func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore accounts.AccountStore, cfg config.Config) error {
 	if accountStore == nil {
 		return errors.New("account store not configured")
 	}
@@ -1027,7 +968,7 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore
 		return err
 	}
 
-	user, err := accountStore.CreateUser(ctx, dbstore.CreateUserInput{
+	user, err := accountStore.CreateUser(ctx, accounts.CreateUserInput{
 		IsActive: true,
 		Metadata: []byte("{}"),
 	})
@@ -1035,7 +976,7 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore
 		return fmt.Errorf("create admin user: %w", err)
 	}
 
-	_, err = accountStore.CreateAccount(ctx, dbstore.CreateAccountInput{
+	_, err = accountStore.CreateAccount(ctx, accounts.CreateAccountInput{
 		UserID:       user.ID,
 		Username:     username,
 		Email:        email,
@@ -1055,7 +996,7 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore
 type lazyLLMClient struct {
 	modelsService   *models.Service
 	settingsService *settings.Service
-	queries         dbstore.Queries
+	queries         *dbsqlc.Queries
 	timeout         time.Duration
 	logger          *slog.Logger
 }
@@ -1123,7 +1064,7 @@ func (c *lazyLLMClient) resolve(ctx context.Context, botID string) (memprovider.
 }
 
 type skillLoaderAdapter struct {
-	handler *handlers.ContainerdHandler
+	handler *handlers.WorkspaceContainerHandler
 }
 
 func (a *skillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]flow.SkillEntry, error) {
@@ -1210,7 +1151,7 @@ func (a *gatewayAssetLoaderAdapter) OpenForGateway(ctx context.Context, botID, c
 }
 
 type commandSkillLoaderAdapter struct {
-	handler *handlers.ContainerdHandler
+	handler *handlers.WorkspaceContainerHandler
 }
 
 func (a *commandSkillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]command.Skill, error) {

@@ -575,7 +575,7 @@ type mcpStdioSession struct {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/mcp-stdio [post].
-func (h *ContainerdHandler) CreateMCPStdio(c echo.Context) error {
+func (h *WorkspaceContainerHandler) CreateMCPStdio(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -641,7 +641,7 @@ func (h *ContainerdHandler) CreateMCPStdio(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/mcp-stdio/{connection_id} [post].
-func (h *ContainerdHandler) HandleMCPStdio(c echo.Context) error {
+func (h *WorkspaceContainerHandler) HandleMCPStdio(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -686,7 +686,7 @@ func (h *ContainerdHandler) HandleMCPStdio(c echo.Context) error {
 	return c.JSON(http.StatusOK, payload)
 }
 
-func (h *ContainerdHandler) startContainerdMCPCommandSession(ctx context.Context, botID, containerID string, req MCPStdioRequest) (*mcpSession, error) {
+func (h *WorkspaceContainerHandler) startContainerdMCPCommandSession(ctx context.Context, botID, containerID string, req MCPStdioRequest) (*mcpSession, error) {
 	// Get gRPC client for the bot container via manager
 	client, err := h.manager.MCPClient(ctx, botID)
 	if err != nil {
@@ -776,7 +776,7 @@ func (h *ContainerdHandler) startContainerdMCPCommandSession(ctx context.Context
 	return sess, nil
 }
 
-func (h *ContainerdHandler) probeMCPTools(ctx context.Context, sess *mcpSession, botID, name string) []string {
+func (h *WorkspaceContainerHandler) probeMCPTools(ctx context.Context, sess *mcpSession, botID, name string) []string {
 	if sess == nil {
 		return nil
 	}

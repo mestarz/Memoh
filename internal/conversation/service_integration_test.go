@@ -16,9 +16,7 @@ import (
 	"github.com/memohai/memoh/internal/channel/identities"
 	conversation "github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/message"
 )
 
@@ -26,7 +24,7 @@ type chatPresenceFixture struct {
 	chatSvc            *conversation.Service
 	messageSvc         message.Service
 	channelIdentitySvc *identities.Service
-	queries            dbstore.Queries
+	queries            *dbsqlc.Queries
 	cleanup            func()
 }
 
@@ -49,7 +47,7 @@ func setupChatPresenceIntegrationTest(t *testing.T) chatPresenceFixture {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	queries := postgresstore.NewQueries(sqlc.New(pool))
+	queries := dbsqlc.New(pool)
 
 	return chatPresenceFixture{
 		chatSvc:            conversation.NewService(logger, queries),
@@ -60,8 +58,8 @@ func setupChatPresenceIntegrationTest(t *testing.T) chatPresenceFixture {
 	}
 }
 
-func createUserForChatPresence(ctx context.Context, queries dbstore.Queries) (string, error) {
-	row, err := queries.CreateUser(ctx, sqlc.CreateUserParams{
+func createUserForChatPresence(ctx context.Context, queries *dbsqlc.Queries) (string, error) {
+	row, err := queries.CreateUser(ctx, dbsqlc.CreateUserParams{
 		IsActive: true,
 		Metadata: []byte("{}"),
 	})
@@ -71,7 +69,7 @@ func createUserForChatPresence(ctx context.Context, queries dbstore.Queries) (st
 	return row.ID.String(), nil
 }
 
-func createBotForChatPresence(ctx context.Context, queries dbstore.Queries, ownerUserID string) (string, error) {
+func createBotForChatPresence(ctx context.Context, queries *dbsqlc.Queries, ownerUserID string) (string, error) {
 	pgOwnerID, err := db.ParseUUID(ownerUserID)
 	if err != nil {
 		return "", err
@@ -80,7 +78,7 @@ func createBotForChatPresence(ctx context.Context, queries dbstore.Queries, owne
 	if err != nil {
 		return "", err
 	}
-	row, err := queries.CreateBot(ctx, sqlc.CreateBotParams{
+	row, err := queries.CreateBot(ctx, dbsqlc.CreateBotParams{
 		OwnerUserID: pgOwnerID,
 		DisplayName: pgtype.Text{String: "presence-test-bot", Valid: true},
 		IsActive:    true,

@@ -15,8 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 const (
@@ -27,12 +26,12 @@ const (
 // Service manages channel identity->user bind code lifecycle.
 type Service struct {
 	pool    *pgxpool.Pool
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
 // NewService creates a bind code service.
-func NewService(log *slog.Logger, pool *pgxpool.Pool, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, pool *pgxpool.Pool, queries *dbsqlc.Queries) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -62,7 +61,7 @@ func (s *Service) Issue(ctx context.Context, issuedByUserID, platform string, tt
 	expiresAt := time.Now().UTC().Add(ttl)
 	for i := 0; i < maxTokenRetries; i++ {
 		token := strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", "")[:8])
-		row, err := s.queries.CreateBindCode(ctx, sqlc.CreateBindCodeParams{
+		row, err := s.queries.CreateBindCode(ctx, dbsqlc.CreateBindCodeParams{
 			Token:          token,
 			IssuedByUserID: pgUserID,
 			ChannelType: pgtype.Text{
@@ -179,7 +178,7 @@ func (s *Service) Consume(ctx context.Context, code Code, channelIdentityID stri
 		return ErrLinkConflict
 	}
 	if !sourceIdentity.UserID.Valid {
-		if _, err := qtx.SetChannelIdentityLinkedUser(ctx, sqlc.SetChannelIdentityLinkedUserParams{
+		if _, err := qtx.SetChannelIdentityLinkedUser(ctx, dbsqlc.SetChannelIdentityLinkedUserParams{
 			ID:     pgSourceIdentityID,
 			UserID: pgTargetUserID,
 		}); err != nil {
@@ -187,7 +186,7 @@ func (s *Service) Consume(ctx context.Context, code Code, channelIdentityID stri
 		}
 	}
 
-	if _, err := qtx.MarkBindCodeUsed(ctx, sqlc.MarkBindCodeUsedParams{
+	if _, err := qtx.MarkBindCodeUsed(ctx, dbsqlc.MarkBindCodeUsedParams{
 		ID:                      lockedCodeRow.ID,
 		UsedByChannelIdentityID: pgSourceIdentityID,
 	}); err != nil {
@@ -216,7 +215,7 @@ func isNotFound(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows) || errors.Is(err, db.ErrNotFound)
 }
 
-func toCode(row sqlc.ChannelIdentityBindCode) Code {
+func toCode(row dbsqlc.ChannelIdentityBindCode) Code {
 	c := Code{
 		ID:             row.ID.String(),
 		Token:          row.Token,

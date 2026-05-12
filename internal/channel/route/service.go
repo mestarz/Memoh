@@ -13,8 +13,7 @@ import (
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/conversation"
 	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // ConversationService contains the minimal conversation behavior required by route resolution.
@@ -24,13 +23,13 @@ type ConversationService interface {
 
 // DBService manages channel routes and route-to-conversation resolution.
 type DBService struct {
-	queries      dbstore.Queries
+	queries      *dbsqlc.Queries
 	conversation ConversationService
 	logger       *slog.Logger
 }
 
 // NewService creates a channel route service.
-func NewService(log *slog.Logger, queries dbstore.Queries, conversationService ConversationService) *DBService {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, conversationService ConversationService) *DBService {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -63,7 +62,7 @@ func (s *DBService) Create(ctx context.Context, input CreateInput) (Route, error
 		return Route{}, fmt.Errorf("marshal route metadata: %w", err)
 	}
 
-	row, err := s.queries.CreateChatRoute(ctx, sqlc.CreateChatRouteParams{
+	row, err := s.queries.CreateChatRoute(ctx, dbsqlc.CreateChatRouteParams{
 		ChatID:           pgConversationID,
 		BotID:            pgBotID,
 		Platform:         input.Platform,
@@ -87,7 +86,7 @@ func (s *DBService) Find(ctx context.Context, botID, platform, conversationID, t
 	if err != nil {
 		return Route{}, err
 	}
-	row, err := s.queries.FindChatRoute(ctx, sqlc.FindChatRouteParams{
+	row, err := s.queries.FindChatRoute(ctx, dbsqlc.FindChatRouteParams{
 		BotID:          pgBotID,
 		Platform:       platform,
 		ConversationID: conversationID,
@@ -144,7 +143,7 @@ func (s *DBService) UpdateReplyTarget(ctx context.Context, routeID, replyTarget 
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateChatRouteReplyTarget(ctx, sqlc.UpdateChatRouteReplyTargetParams{
+	return s.queries.UpdateChatRouteReplyTarget(ctx, dbsqlc.UpdateChatRouteReplyTargetParams{
 		ID:          pgID,
 		ReplyTarget: toPgText(replyTarget),
 	})
@@ -160,7 +159,7 @@ func (s *DBService) UpdateMetadata(ctx context.Context, routeID string, metadata
 	if err != nil {
 		return fmt.Errorf("marshal route metadata: %w", err)
 	}
-	return s.queries.UpdateChatRouteMetadata(ctx, sqlc.UpdateChatRouteMetadataParams{
+	return s.queries.UpdateChatRouteMetadata(ctx, dbsqlc.UpdateChatRouteMetadataParams{
 		ID:       pgID,
 		Metadata: data,
 	})
@@ -278,7 +277,7 @@ func (s *DBService) resolveConversationCreatorChannelIdentityID(ctx context.Cont
 	return ownerUserID
 }
 
-func toRouteFromCreate(row sqlc.CreateChatRouteRow) Route {
+func toRouteFromCreate(row dbsqlc.CreateChatRouteRow) Route {
 	return toRouteFields(
 		row.ID, row.ChatID, row.BotID, row.Platform, row.ChannelConfigID,
 		row.ConversationID, row.ThreadID, row.ConversationType, row.ReplyTarget,
@@ -286,7 +285,7 @@ func toRouteFromCreate(row sqlc.CreateChatRouteRow) Route {
 	)
 }
 
-func toRouteFromFind(row sqlc.FindChatRouteRow) Route {
+func toRouteFromFind(row dbsqlc.FindChatRouteRow) Route {
 	return toRouteFields(
 		row.ID, row.ChatID, row.BotID, row.Platform, row.ChannelConfigID,
 		row.ConversationID, row.ThreadID, row.ConversationType, row.ReplyTarget,
@@ -294,7 +293,7 @@ func toRouteFromFind(row sqlc.FindChatRouteRow) Route {
 	)
 }
 
-func toRouteFromGet(row sqlc.GetChatRouteByIDRow) Route {
+func toRouteFromGet(row dbsqlc.GetChatRouteByIDRow) Route {
 	return toRouteFields(
 		row.ID, row.ChatID, row.BotID, row.Platform, row.ChannelConfigID,
 		row.ConversationID, row.ThreadID, row.ConversationType, row.ReplyTarget,
@@ -302,7 +301,7 @@ func toRouteFromGet(row sqlc.GetChatRouteByIDRow) Route {
 	)
 }
 
-func toRouteFromList(row sqlc.ListChatRoutesRow) Route {
+func toRouteFromList(row dbsqlc.ListChatRoutesRow) Route {
 	return toRouteFields(
 		row.ID, row.ChatID, row.BotID, row.Platform, row.ChannelConfigID,
 		row.ConversationID, row.ThreadID, row.ConversationType, row.ReplyTarget,

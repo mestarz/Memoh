@@ -13,8 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // ErrChannelConfigNotFound indicates the bot has no persisted config for the channel type.
@@ -22,12 +21,12 @@ var ErrChannelConfigNotFound = errors.New("channel config not found")
 
 // Store provides CRUD operations for channel configurations, user bindings, and sessions.
 type Store struct {
-	queries  dbstore.Queries
+	queries  *dbsqlc.Queries
 	registry *Registry
 }
 
 // NewStore creates a Store backed by the given database queries and adapter registry.
-func NewStore(queries dbstore.Queries, registry *Registry) *Store {
+func NewStore(queries *dbsqlc.Queries, registry *Registry) *Store {
 	if registry == nil {
 		registry = NewRegistry()
 	}
@@ -89,7 +88,7 @@ func (s *Store) UpsertConfig(ctx context.Context, botID string, channelType Chan
 	if req.VerifiedAt != nil {
 		verifiedAt = pgtype.Timestamptz{Time: req.VerifiedAt.UTC(), Valid: true}
 	}
-	row, err := s.queries.UpsertBotChannelConfig(ctx, sqlc.UpsertBotChannelConfigParams{
+	row, err := s.queries.UpsertBotChannelConfig(ctx, dbsqlc.UpsertBotChannelConfigParams{
 		BotID:       botUUID,
 		ChannelType: channelType.String(),
 		Credentials: credentialsPayload,
@@ -121,7 +120,7 @@ func (s *Store) DeleteConfig(ctx context.Context, botID string, channelType Chan
 	if err != nil {
 		return err
 	}
-	return s.queries.DeleteBotChannelConfig(ctx, sqlc.DeleteBotChannelConfigParams{
+	return s.queries.DeleteBotChannelConfig(ctx, dbsqlc.DeleteBotChannelConfigParams{
 		BotID:       botUUID,
 		ChannelType: channelType.String(),
 	})
@@ -139,7 +138,7 @@ func (s *Store) UpdateConfigDisabled(ctx context.Context, botID string, channelT
 	if err != nil {
 		return ChannelConfig{}, err
 	}
-	row, err := s.queries.UpdateBotChannelConfigDisabled(ctx, sqlc.UpdateBotChannelConfigDisabledParams{
+	row, err := s.queries.UpdateBotChannelConfigDisabled(ctx, dbsqlc.UpdateBotChannelConfigDisabledParams{
 		BotID:       botUUID,
 		ChannelType: channelType.String(),
 		Disabled:    disabled,
@@ -162,7 +161,7 @@ func (s *Store) SaveMatrixSyncSinceToken(ctx context.Context, configID string, s
 	if err != nil {
 		return err
 	}
-	rows, err := s.queries.SaveMatrixSyncSinceToken(ctx, sqlc.SaveMatrixSyncSinceTokenParams{
+	rows, err := s.queries.SaveMatrixSyncSinceToken(ctx, dbsqlc.SaveMatrixSyncSinceTokenParams{
 		ID:         pgConfigID,
 		SinceToken: strings.TrimSpace(since),
 	})
@@ -195,7 +194,7 @@ func (s *Store) UpsertChannelIdentityConfig(ctx context.Context, channelIdentity
 	if err != nil {
 		return ChannelIdentityBinding{}, err
 	}
-	row, err := s.queries.UpsertUserChannelBinding(ctx, sqlc.UpsertUserChannelBindingParams{
+	row, err := s.queries.UpsertUserChannelBinding(ctx, dbsqlc.UpsertUserChannelBindingParams{
 		UserID:      pgChannelIdentityID,
 		ChannelType: channelType.String(),
 		Config:      payload,
@@ -226,7 +225,7 @@ func (s *Store) ResolveEffectiveConfig(ctx context.Context, botID string, channe
 	if err != nil {
 		return ChannelConfig{}, err
 	}
-	row, err := s.queries.GetBotChannelConfig(ctx, sqlc.GetBotChannelConfigParams{
+	row, err := s.queries.GetBotChannelConfig(ctx, dbsqlc.GetBotChannelConfigParams{
 		BotID:       botUUID,
 		ChannelType: channelType.String(),
 	})
@@ -300,7 +299,7 @@ func (s *Store) GetChannelIdentityConfig(ctx context.Context, channelIdentityID 
 	if err != nil {
 		return ChannelIdentityBinding{}, err
 	}
-	row, err := s.queries.GetUserChannelBinding(ctx, sqlc.GetUserChannelBindingParams{
+	row, err := s.queries.GetUserChannelBinding(ctx, dbsqlc.GetUserChannelBindingParams{
 		UserID:      pgChannelIdentityID,
 		ChannelType: channelType.String(),
 	})
@@ -361,7 +360,7 @@ func (s *Store) ResolveChannelIdentityBinding(ctx context.Context, channelType C
 	return "", errors.New("channel user binding not found")
 }
 
-func normalizeChannelConfigFromRow(row sqlc.BotChannelConfig) (ChannelConfig, error) {
+func normalizeChannelConfigFromRow(row dbsqlc.BotChannelConfig) (ChannelConfig, error) {
 	return normalizeChannelConfigFields(
 		row.ID, row.BotID, row.ChannelType,
 		row.Credentials, row.ExternalIdentity, row.SelfIdentity, row.Routing,
@@ -369,7 +368,7 @@ func normalizeChannelConfigFromRow(row sqlc.BotChannelConfig) (ChannelConfig, er
 	)
 }
 
-func normalizeChannelConfigFromGetRow(row sqlc.BotChannelConfig) (ChannelConfig, error) {
+func normalizeChannelConfigFromGetRow(row dbsqlc.BotChannelConfig) (ChannelConfig, error) {
 	return normalizeChannelConfigFields(
 		row.ID, row.BotID, row.ChannelType,
 		row.Credentials, row.ExternalIdentity, row.SelfIdentity, row.Routing,
@@ -377,7 +376,7 @@ func normalizeChannelConfigFromGetRow(row sqlc.BotChannelConfig) (ChannelConfig,
 	)
 }
 
-func normalizeChannelConfigFromListRow(row sqlc.BotChannelConfig) (ChannelConfig, error) {
+func normalizeChannelConfigFromListRow(row dbsqlc.BotChannelConfig) (ChannelConfig, error) {
 	return normalizeChannelConfigFields(
 		row.ID, row.BotID, row.ChannelType,
 		row.Credentials, row.ExternalIdentity, row.SelfIdentity, row.Routing,
@@ -425,7 +424,7 @@ func normalizeChannelConfigFields(
 	}, nil
 }
 
-func normalizeChannelIdentityBinding(row sqlc.UserChannelBinding) (ChannelIdentityBinding, error) {
+func normalizeChannelIdentityBinding(row dbsqlc.UserChannelBinding) (ChannelIdentityBinding, error) {
 	config, err := DecodeConfigMap(row.Config)
 	if err != nil {
 		return ChannelIdentityBinding{}, err

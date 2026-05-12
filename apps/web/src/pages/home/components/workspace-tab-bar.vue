@@ -87,7 +87,10 @@
   </div>
 
   <!-- Auto-close confirmation dialog -->
-  <Dialog :open="!!store.autoCloseCandidate" @update:open="(v) => !v && store.cancelAutoClose()">
+  <Dialog
+    :open="!!store.autoCloseCandidate"
+    @update:open="(v) => !v && store.cancelAutoClose()"
+  >
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{{ t('chat.autoCloseTitle') }}</DialogTitle>
@@ -96,10 +99,16 @@
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>
-        <Button variant="outline" @click="store.cancelAutoClose()">
+        <Button
+          variant="outline"
+          @click="store.cancelAutoClose()"
+        >
           {{ t('common.cancel') }}
         </Button>
-        <Button variant="destructive" @click="store.confirmAutoClose()">
+        <Button
+          variant="destructive"
+          @click="store.confirmAutoClose()"
+        >
           {{ t('chat.autoCloseConfirm') }}
         </Button>
       </DialogFooter>

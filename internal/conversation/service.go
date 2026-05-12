@@ -14,8 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 var (
@@ -27,12 +26,12 @@ var (
 
 // Service manages conversation lifecycle, participants, and settings.
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
 // NewService creates a conversation service.
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -77,7 +76,7 @@ func (s *Service) Create(ctx context.Context, botID, channelIdentityID string, r
 		return Conversation{}, fmt.Errorf("marshal conversation metadata: %w", err)
 	}
 
-	row, err := s.queries.CreateChat(ctx, sqlc.CreateChatParams{
+	row, err := s.queries.CreateChat(ctx, dbsqlc.CreateChatParams{
 		BotID:           pgBotID,
 		Kind:            kind,
 		ParentChatID:    pgParent,
@@ -118,7 +117,7 @@ func (s *Service) GetReadAccess(ctx context.Context, conversationID, channelIden
 	if err != nil {
 		return ConversationReadAccess{}, ErrPermissionDenied
 	}
-	row, err := s.queries.GetChatReadAccessByUser(ctx, sqlc.GetChatReadAccessByUserParams{
+	row, err := s.queries.GetChatReadAccessByUser(ctx, dbsqlc.GetChatReadAccessByUserParams{
 		ChatID: pgConversationID,
 		UserID: pgChannelIdentityID,
 	})
@@ -145,7 +144,7 @@ func (s *Service) ListByBotAndChannelIdentity(ctx context.Context, botID, channe
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListVisibleChatsByBotAndUser(ctx, sqlc.ListVisibleChatsByBotAndUserParams{
+	rows, err := s.queries.ListVisibleChatsByBotAndUser(ctx, dbsqlc.ListVisibleChatsByBotAndUserParams{
 		BotID:  pgBotID,
 		UserID: pgChannelIdentityID,
 	})
@@ -281,7 +280,7 @@ func (s *Service) UpdateSettings(ctx context.Context, conversationID string, req
 		}
 	}
 
-	row, err := s.queries.UpsertChatSettings(ctx, sqlc.UpsertChatSettingsParams{
+	row, err := s.queries.UpsertChatSettings(ctx, dbsqlc.UpsertChatSettingsParams{
 		ID:          pgID,
 		ChatModelID: chatModelUUID,
 	})
@@ -291,7 +290,7 @@ func (s *Service) UpdateSettings(ctx context.Context, conversationID string, req
 	return toSettingsFromUpsert(row), nil
 }
 
-func toChatFromCreate(row sqlc.CreateChatRow) Conversation {
+func toChatFromCreate(row dbsqlc.CreateChatRow) Conversation {
 	return toChatFields(
 		row.ID,
 		row.BotID,
@@ -305,7 +304,7 @@ func toChatFromCreate(row sqlc.CreateChatRow) Conversation {
 	)
 }
 
-func toChatFromGet(row sqlc.GetChatByIDRow) Conversation {
+func toChatFromGet(row dbsqlc.GetChatByIDRow) Conversation {
 	return toChatFields(
 		row.ID,
 		row.BotID,
@@ -319,7 +318,7 @@ func toChatFromGet(row sqlc.GetChatByIDRow) Conversation {
 	)
 }
 
-func toChatFromThread(row sqlc.ListThreadsByParentRow) Conversation {
+func toChatFromThread(row dbsqlc.ListThreadsByParentRow) Conversation {
 	return toChatFields(
 		row.ID,
 		row.BotID,
@@ -347,7 +346,7 @@ func toChatFields(id, botID pgtype.UUID, kind string, parentChatID pgtype.UUID, 
 	}
 }
 
-func toChatListItem(row sqlc.ListVisibleChatsByBotAndUserRow) ConversationListItem {
+func toChatListItem(row dbsqlc.ListVisibleChatsByBotAndUserRow) ConversationListItem {
 	return ConversationListItem{
 		ID:              row.ID.String(),
 		BotID:           row.BotID.String(),
@@ -364,7 +363,7 @@ func toChatListItem(row sqlc.ListVisibleChatsByBotAndUserRow) ConversationListIt
 	}
 }
 
-func toSettingsFromRead(row sqlc.GetChatSettingsRow) Settings {
+func toSettingsFromRead(row dbsqlc.GetChatSettingsRow) Settings {
 	settings := Settings{
 		ChatID: row.ChatID.String(),
 	}
@@ -374,7 +373,7 @@ func toSettingsFromRead(row sqlc.GetChatSettingsRow) Settings {
 	return settings
 }
 
-func toSettingsFromUpsert(row sqlc.UpsertChatSettingsRow) Settings {
+func toSettingsFromUpsert(row dbsqlc.UpsertChatSettingsRow) Settings {
 	settings := Settings{
 		ChatID: row.ChatID.String(),
 	}

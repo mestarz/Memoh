@@ -10,13 +10,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/memohai/memoh/internal/db"
-	dbstore "github.com/memohai/memoh/internal/db/store"
 	tzutil "github.com/memohai/memoh/internal/timezone"
 )
 
 // Service provides account (credential) management for users.
 type Service struct {
-	store  dbstore.AccountStore
+	store  AccountStore
 	logger *slog.Logger
 }
 
@@ -27,7 +26,7 @@ var (
 )
 
 // NewService creates a new accounts service.
-func NewService(log *slog.Logger, store dbstore.AccountStore) *Service {
+func NewService(log *slog.Logger, store AccountStore) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -166,7 +165,7 @@ func (s *Service) Create(ctx context.Context, userID string, req CreateAccountRe
 		isActive = *req.IsActive
 	}
 
-	row, err := s.store.CreateAccount(ctx, dbstore.CreateAccountInput{
+	row, err := s.store.CreateAccount(ctx, CreateAccountInput{
 		UserID:       userID,
 		Username:     username,
 		Email:        email,
@@ -191,7 +190,7 @@ func (s *Service) CreateHuman(ctx context.Context, userID string, req CreateAcco
 		if s.store == nil {
 			return Account{}, errors.New("account store not configured")
 		}
-		userRow, err := s.store.CreateUser(ctx, dbstore.CreateUserInput{
+		userRow, err := s.store.CreateUser(ctx, CreateUserInput{
 			IsActive: true,
 			Metadata: []byte("{}"),
 		})
@@ -238,7 +237,7 @@ func (s *Service) UpdateAdmin(ctx context.Context, userID string, req UpdateAcco
 		isActive = *req.IsActive
 	}
 
-	row, err := s.store.UpdateAdmin(ctx, dbstore.UpdateAccountAdminInput{
+	row, err := s.store.UpdateAdmin(ctx, UpdateAccountAdminInput{
 		UserID:      userID,
 		Role:        role,
 		DisplayName: displayName,
@@ -282,7 +281,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdatePr
 	if tzName == "" {
 		tzName = "UTC"
 	}
-	row, err := s.store.UpdateProfile(ctx, dbstore.UpdateAccountProfileInput{
+	row, err := s.store.UpdateProfile(ctx, UpdateAccountProfileInput{
 		UserID:      userID,
 		DisplayName: displayName,
 		AvatarURL:   avatarURL,
@@ -320,7 +319,7 @@ func (s *Service) UpdatePassword(ctx context.Context, userID, currentPassword, n
 	if err != nil {
 		return err
 	}
-	return s.store.UpdatePassword(ctx, dbstore.UpdateAccountPasswordInput{
+	return s.store.UpdatePassword(ctx, UpdateAccountPasswordInput{
 		UserID:       userID,
 		PasswordHash: string(hashed),
 	})
@@ -338,7 +337,7 @@ func (s *Service) ResetPassword(ctx context.Context, userID, newPassword string)
 	if err != nil {
 		return err
 	}
-	return s.store.UpdatePassword(ctx, dbstore.UpdateAccountPasswordInput{
+	return s.store.UpdatePassword(ctx, UpdateAccountPasswordInput{
 		UserID:       userID,
 		PasswordHash: string(hashed),
 	})
@@ -369,7 +368,7 @@ func isAdminRole(role any) bool {
 	}
 }
 
-func toAccount(row dbstore.AccountRecord) Account {
+func toAccount(row AccountRecord) Account {
 	username := strings.TrimSpace(row.Username)
 	email := strings.TrimSpace(row.Email)
 	displayName := strings.TrimSpace(row.DisplayName)

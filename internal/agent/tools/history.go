@@ -13,8 +13,7 @@ import (
 
 	"github.com/memohai/memoh/internal/conversation"
 	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/session"
 )
 
@@ -28,11 +27,11 @@ type SessionLister interface {
 // HistoryProvider exposes list_sessions and search_messages tools.
 type HistoryProvider struct {
 	sessions SessionLister
-	queries  dbstore.Queries
+	queries  *dbsqlc.Queries
 	logger   *slog.Logger
 }
 
-func NewHistoryProvider(log *slog.Logger, sessions SessionLister, queries dbstore.Queries) *HistoryProvider {
+func NewHistoryProvider(log *slog.Logger, sessions SessionLister, queries *dbsqlc.Queries) *HistoryProvider {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -217,7 +216,7 @@ func (p *HistoryProvider) execSearchMessages(ctx context.Context, sess SessionCo
 		limit = int32(v) //nolint:gosec // bounds-checked above
 	}
 
-	params := sqlc.SearchMessagesParams{
+	params := dbsqlc.SearchMessagesParams{
 		BotID:    pgBotID,
 		MaxCount: limit,
 	}

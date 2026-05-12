@@ -12,8 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // ---- fake DB infrastructure ----
@@ -180,7 +179,7 @@ func TestEvaluate(t *testing.T) {
 					}
 				},
 			}
-			queries := postgresstore.NewQueries(sqlc.New(db))
+			queries := dbsqlc.New(db)
 			service := NewService(nil, queries)
 
 			allowed, err := service.Evaluate(context.Background(), EvaluateRequest{
@@ -268,7 +267,7 @@ func TestSetDefaultEffect(t *testing.T) {
 			return pgconn.CommandTag{}, nil
 		},
 	}
-	service := NewService(nil, postgresstore.NewQueries(sqlc.New(db)))
+	service := NewService(nil, dbsqlc.New(db))
 	if err := service.SetDefaultEffect(context.Background(), botUUID.String(), EffectAllow); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -308,7 +307,7 @@ func TestListObservedConversationsByChannelIdentity(t *testing.T) {
 		},
 	}
 
-	service := NewService(nil, postgresstore.NewQueries(sqlc.New(db)))
+	service := NewService(nil, dbsqlc.New(db))
 	items, err := service.ListObservedConversationsByChannelIdentity(context.Background(), botUUID.String(), channelIdentityUUID.String())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -335,7 +334,7 @@ func TestReorderRules(t *testing.T) {
 			return pgconn.CommandTag{}, nil
 		},
 	}
-	service := NewService(nil, postgresstore.NewQueries(sqlc.New(db)))
+	service := NewService(nil, dbsqlc.New(db))
 	err := service.ReorderRules(context.Background(), []ReorderItem{
 		{ID: ruleUUID.String(), Priority: 42},
 	})

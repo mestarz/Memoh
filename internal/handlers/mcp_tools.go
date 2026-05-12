@@ -22,7 +22,7 @@ const (
 	headerIsSubagent        = "X-Memoh-Is-Subagent"
 )
 
-func (h *ContainerdHandler) SetToolGatewayService(service *mcpgw.ToolGatewayService) {
+func (h *WorkspaceContainerHandler) SetToolGatewayService(service *mcpgw.ToolGatewayService) {
 	h.toolGateway = service
 }
 
@@ -37,7 +37,7 @@ func (h *ContainerdHandler) SetToolGatewayService(service *mcpgw.ToolGatewayServ
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/tools [post].
-func (h *ContainerdHandler) HandleMCPTools(c echo.Context) error {
+func (h *WorkspaceContainerHandler) HandleMCPTools(c echo.Context) error {
 	if h.toolGateway == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "tool gateway not configured")
 	}
@@ -48,7 +48,7 @@ func (h *ContainerdHandler) HandleMCPTools(c echo.Context) error {
 	return h.handleMCPToolsWithBotID(c, botID)
 }
 
-func (h *ContainerdHandler) handleMCPToolsWithBotID(c echo.Context, botID string) error {
+func (h *WorkspaceContainerHandler) handleMCPToolsWithBotID(c echo.Context, botID string) error {
 	session := h.buildToolSessionContext(c, botID)
 
 	req := c.Request()
@@ -101,7 +101,7 @@ func ensureStreamableAcceptHeader(req *http.Request) {
 
 type toolSessionContextKey struct{}
 
-func (h *ContainerdHandler) buildToolMCPServer(ctx context.Context) *sdkmcp.Server {
+func (h *WorkspaceContainerHandler) buildToolMCPServer(ctx context.Context) *sdkmcp.Server {
 	if h.toolGateway == nil {
 		return nil
 	}
@@ -127,7 +127,7 @@ func (h *ContainerdHandler) buildToolMCPServer(ctx context.Context) *sdkmcp.Serv
 	return server
 }
 
-func (h *ContainerdHandler) toolGatewayMiddleware(session mcpgw.ToolSessionContext) sdkmcp.Middleware {
+func (h *WorkspaceContainerHandler) toolGatewayMiddleware(session mcpgw.ToolSessionContext) sdkmcp.Middleware {
 	return func(next sdkmcp.MethodHandler) sdkmcp.MethodHandler {
 		return func(ctx context.Context, method string, req sdkmcp.Request) (sdkmcp.Result, error) {
 			switch strings.TrimSpace(method) {
@@ -224,7 +224,7 @@ func convertGatewayCallResultToSDK(result map[string]any) (*sdkmcp.CallToolResul
 	return &out, nil
 }
 
-func (*ContainerdHandler) buildToolSessionContext(c echo.Context, botID string) mcpgw.ToolSessionContext {
+func (*WorkspaceContainerHandler) buildToolSessionContext(c echo.Context, botID string) mcpgw.ToolSessionContext {
 	channelIdentityID := strings.TrimSpace(c.Request().Header.Get(headerChannelIdentityID))
 	if channelIdentityID == "" {
 		if ctxIdentityID, err := auth.UserIDFromContext(c); err == nil {

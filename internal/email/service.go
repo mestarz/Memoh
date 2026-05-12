@@ -8,18 +8,17 @@ import (
 	"strings"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // Service manages email provider CRUD and bindings.
 type Service struct {
-	queries  dbstore.Queries
+	queries  *dbsqlc.Queries
 	logger   *slog.Logger
 	registry *Registry
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, registry *Registry) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, registry *Registry) *Service {
 	return &Service{
 		queries:  queries,
 		logger:   log.With(slog.String("service", "email")),
@@ -55,7 +54,7 @@ func (s *Service) CreateProvider(ctx context.Context, req CreateProviderRequest)
 	if err != nil {
 		return ProviderResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
-	row, err := s.queries.CreateEmailProvider(ctx, sqlc.CreateEmailProviderParams{
+	row, err := s.queries.CreateEmailProvider(ctx, dbsqlc.CreateEmailProviderParams{
 		Name:     strings.TrimSpace(req.Name),
 		Provider: string(req.Provider),
 		Config:   configJSON,
@@ -78,10 +77,10 @@ func (s *Service) GetProvider(ctx context.Context, id string) (ProviderResponse,
 	return s.toProviderResponse(row), nil
 }
 
-func (s *Service) GetRawProvider(ctx context.Context, id string) (sqlc.EmailProvider, error) {
+func (s *Service) GetRawProvider(ctx context.Context, id string) (dbsqlc.EmailProvider, error) {
 	pgID, err := db.ParseUUID(id)
 	if err != nil {
-		return sqlc.EmailProvider{}, err
+		return dbsqlc.EmailProvider{}, err
 	}
 	return s.queries.GetEmailProviderByID(ctx, pgID)
 }
@@ -89,7 +88,7 @@ func (s *Service) GetRawProvider(ctx context.Context, id string) (sqlc.EmailProv
 func (s *Service) ListProviders(ctx context.Context, provider string) ([]ProviderResponse, error) {
 	provider = strings.TrimSpace(provider)
 	var (
-		rows []sqlc.EmailProvider
+		rows []dbsqlc.EmailProvider
 		err  error
 	)
 	if provider == "" {
@@ -142,7 +141,7 @@ func (s *Service) UpdateProvider(ctx context.Context, id string, req UpdateProvi
 		}
 		config = configJSON
 	}
-	updated, err := s.queries.UpdateEmailProvider(ctx, sqlc.UpdateEmailProviderParams{
+	updated, err := s.queries.UpdateEmailProvider(ctx, dbsqlc.UpdateEmailProviderParams{
 		ID:       pgID,
 		Name:     name,
 		Provider: provider,
@@ -162,7 +161,7 @@ func (s *Service) DeleteProvider(ctx context.Context, id string) error {
 	return s.queries.DeleteEmailProvider(ctx, pgID)
 }
 
-func (s *Service) toProviderResponse(row sqlc.EmailProvider) ProviderResponse {
+func (s *Service) toProviderResponse(row dbsqlc.EmailProvider) ProviderResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		if err := json.Unmarshal(row.Config, &cfg); err != nil {
@@ -204,7 +203,7 @@ func (s *Service) CreateBinding(ctx context.Context, botID string, req CreateBin
 	if err != nil {
 		return BindingResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
-	row, err := s.queries.CreateBotEmailBinding(ctx, sqlc.CreateBotEmailBindingParams{
+	row, err := s.queries.CreateBotEmailBinding(ctx, dbsqlc.CreateBotEmailBindingParams{
 		BotID:           pgBotID,
 		EmailProviderID: pgProviderID,
 		EmailAddress:    strings.TrimSpace(req.EmailAddress),
@@ -307,7 +306,7 @@ func (s *Service) UpdateBinding(ctx context.Context, id string, req UpdateBindin
 		}
 		config = configJSON
 	}
-	updated, err := s.queries.UpdateBotEmailBinding(ctx, sqlc.UpdateBotEmailBindingParams{
+	updated, err := s.queries.UpdateBotEmailBinding(ctx, dbsqlc.UpdateBotEmailBindingParams{
 		ID:           pgID,
 		EmailAddress: emailAddr,
 		CanRead:      canRead,
@@ -329,7 +328,7 @@ func (s *Service) DeleteBinding(ctx context.Context, id string) error {
 	return s.queries.DeleteBotEmailBinding(ctx, pgID)
 }
 
-func (s *Service) toBindingResponse(row sqlc.BotEmailBinding) BindingResponse {
+func (s *Service) toBindingResponse(row dbsqlc.BotEmailBinding) BindingResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		if err := json.Unmarshal(row.Config, &cfg); err != nil {

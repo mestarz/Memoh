@@ -14,9 +14,9 @@ The system consists of two core services:
 | **Web** (Frontend) | Vue 3 + Vite | 8082 | Management UI: visual configuration for Bots, Models, Channels, etc. |
 
 Infrastructure dependencies:
-- **PostgreSQL or SQLite** — Relational data storage
+- **PostgreSQL** — Relational data storage
 - **Qdrant** — Vector database for memory semantic search
-- **Container runtime** — Isolated workspace containers per bot (Docker, Kubernetes, containerd, Apple Virtualization)
+- **Container runtime** — Docker (used to run isolated workspace containers per bot, plus the postgres/qdrant/sparse infrastructure stack)
 
 ## Tech Stack
 
@@ -24,11 +24,11 @@ Infrastructure dependencies:
 - **Framework**: Echo (HTTP)
 - **Dependency Injection**: Uber FX
 - **AI SDK**: [Twilight AI](https://github.com/memohai/twilight-ai) (Go LLM SDK — OpenAI, Anthropic, Google)
-- **Database Drivers**: pgx/v5 (PostgreSQL), modernc.org/sqlite (SQLite)
+- **Database Drivers**: pgx/v5 (PostgreSQL)
 - **Code Generation**: sqlc (SQL → Go)
 - **API Docs**: Swagger/OpenAPI (swaggo)
 - **MCP**: modelcontextprotocol/go-sdk
-- **Containers**: Docker / Kubernetes / containerd v2 / Apple Virtualization adapters
+- **Containers**: Docker adapter only
 - **TUI**: Charm libraries (bubbletea, glamour, lipgloss) for CLI interactive mode
 
 ### Frontend (TypeScript)
@@ -39,7 +39,6 @@ Infrastructure dependencies:
 - **Icons**: lucide-vue-next + `@memohai/icon` (brand/provider icons)
 - **i18n**: vue-i18n
 - **Markdown**: markstream-vue + Shiki + Mermaid + KaTeX
-- **Desktop**: Electron + [electron-vite](https://electron-vite.github.io/) (thin shell whose renderer imports `@memohai/web`'s bootstrap)
 - **Package Manager**: pnpm monorepo
 
 ### Tooling
@@ -59,7 +58,7 @@ Memoh/
 │   ├── bridge/                 #   In-container gRPC bridge (UDS-based, runs inside bot containers)
 │   │   └── template/           #     Prompt templates for bridge (TOOLS.md, SOUL.md, IDENTITY.md, etc.)
 │   ├── mcp/                    #   MCP stdio transport binary
-│   └── memoh/                  #   Desktop companion CLI (Cobra: chat, tui, bots, start/stop/restart/status/logs, version) — bundled into Memoh.app, talks to the local 18731 server
+│   └── memoh/                  #   Local CLI (Cobra: chat, tui, bots, start/stop/restart/status/logs, version) — talks to the local 127.0.0.1:18731 server
 ├── internal/                   # Go backend core code (domain packages)
 │   ├── accounts/               #   User account management (CRUD, password hashing)
 │   ├── acl/                    #   Access control list (source-aware chat trigger ACL)
@@ -109,7 +108,7 @@ Memoh/
 │   ├── command/                #   Slash command system (extensible command handlers)
 │   ├── compaction/             #   Message history compaction service (LLM summarization)
 │   ├── config/                 #   Configuration loading and parsing (TOML + YAML providers)
-│   ├── container/              #   Container runtime abstraction + adapters (containerd, Apple, Docker, Kubernetes)
+│   ├── container/              #   Container runtime abstraction (Docker adapter)
 │   ├── conversation/           #   Conversation management and flow resolver
 │   │   ├── service.go          #     Conversation CRUD and routing
 │   │   └── flow/               #     Chat orchestration (resolver, streaming, memory, triggers)
@@ -152,7 +151,6 @@ Memoh/
 │       ├── bridge/             #     gRPC client for in-container bridge service
 │       └── bridgepb/           #     Protobuf definitions (bridge.proto)
 ├── apps/                       # Application services
-│   ├── desktop/                #   Electron desktop app (@memohai/desktop, electron-vite; renderer imports @memohai/web)
 │   └── web/                    #   Main web app (@memohai/web, Vue 3) — see apps/web/AGENTS.md
 ├── packages/                   # Shared TypeScript libraries
 │   ├── ui/                     #   Shared UI component library (@memohai/ui)
@@ -161,30 +159,18 @@ Memoh/
 │   └── config/                 #   Shared configuration utilities (@memohai/config)
 ├── spec/                       # OpenAPI specifications (swagger.json, swagger.yaml)
 ├── db/                         # Database
-│   ├── postgres/               #   PostgreSQL SQL resources
-│   │   ├── migrations/         #   SQL migration files (0001–0067+)
-│   │   └── queries/            #   SQL query files (sqlc input)
-│   └── sqlite/                 #   SQLite SQL resources (parallel backend track)
-│       ├── migrations/         #   SQLite migration files
-│       └── queries/            #   SQLite query files (sqlc input)
+│   └── postgres/               #   PostgreSQL SQL resources
+│       ├── migrations/         #   SQL migration files (0001–0067+)
+│       └── queries/            #   SQL query files (sqlc input)
 ├── conf/                       # Configuration
 │   ├── providers/              #   Provider YAML templates (openai, anthropic, codex, github-copilot, etc.)
-│   ├── app.example.toml        #   Default config template
-│   ├── app.docker.toml         #   Docker deployment config
-│   ├── app.apple.toml          #   macOS (Apple Virtualization) config
-│   └── app.windows.toml        #   Windows config
+│   └── app.example.toml        #   Default config template
 ├── devenv/                     # Dev environment
-│   ├── docker-compose.yml      #   Main dev compose
-│   ├── docker-compose.minify.yml #  Minified services compose
-│   ├── docker-compose.selinux.yml # SELinux overlay compose
+│   ├── docker-compose.yml      #   Dev infrastructure compose (postgres + qdrant + sparse on dev ports)
 │   └── app.dev.toml            #   Dev config (connects to devenv docker-compose)
-├── deploy/
-│   ├── kubernetes/             # Kubernetes kustomize starter deployment
-│   └── kubernetes-local/       # Local K8s overlay using k8s-dev image tags
-├── docker/                     # Production Docker (Dockerfiles, entrypoints, nginx.conf, toolkit/)
-├── docs/                       # Documentation site (VitePress)
-├── scripts/                    # Utility scripts (db-up, db-drop, release, install, sync-openrouter-models)
-├── docker-compose.yml          # Docker Compose orchestration (production)
+├── docker/                     # Workspace container assets (toolkit/)
+├── scripts/                    # Utility scripts (db-up, db-drop, release, sync-openrouter-models)
+├── docker-compose.yml          # Infrastructure compose (postgres + qdrant + sparse + browser, all bound to 127.0.0.1)
 ├── mise.toml                   # mise tasks and tool version definitions
 ├── sqlc.yaml                   # sqlc code generation config
 ├── openapi-ts.config.ts        # SDK generation config (@hey-api/openapi-ts)
@@ -201,24 +187,20 @@ Memoh/
 1. Install [mise](https://mise.jdx.dev/)
 2. Install toolchains and dependencies: `mise install`
 3. Initialize the project: `mise run setup`
-4. Start the dev environment: `mise run dev`
+4. Start the dev environment: `mise run dev` (brings up infrastructure + runs `memoh-server` locally with `air` and the web frontend)
 5. Dev web UI: `http://localhost:18082` (server: `18080`)
 
 ### Common Commands
 
 | Command | Description |
 |---------|-------------|
-| `mise run dev` | Start the containerized dev environment (all services) |
-| `mise run dev:minify` | Start dev environment with minified services |
-| `mise run dev:sqlite` | Start SQLite-backed development environment |
-| `mise run dev:sqlite:minify` | Start SQLite-backed development environment with minified services |
-| `mise run dev:selinux` | Start dev environment on SELinux systems |
-| `mise run dev:down` | Stop the dev environment |
-| `mise run dev:down:sqlite` | Stop SQLite development environment |
-| `mise run dev:logs` | View dev environment logs |
-| `mise run dev:logs:sqlite` | View SQLite development logs |
-| `mise run dev:restart` | Restart a service (e.g. `-- server`) |
-| `mise run dev:restart:sqlite` | Restart a SQLite dev service (e.g. `-- server`) |
+| `mise run dev` | Start the full dev environment: docker infra (`infra:up`) + db migrate + local `memoh-server` (`air`) + web (`vite`) |
+| `mise run serve` | Run only the local `memoh-server` (with `air` reload) |
+| `mise run web` | Run only the Vite frontend |
+| `mise run infra:up` | Start dev infrastructure (postgres + qdrant + sparse) via `devenv/docker-compose.yml` |
+| `mise run infra:down` | Stop dev infrastructure |
+| `mise run infra:logs` | Tail dev infrastructure logs |
+| `mise run infra:restart` | Restart a dev infra service (e.g. `-- postgres`) |
 | `mise run setup` | Install dependencies + workspace toolkit |
 | `mise run sqlc-generate` | Regenerate Go code after modifying SQL files |
 | `mise run swagger-generate` | Generate Swagger documentation |
@@ -229,43 +211,39 @@ Memoh/
 | `mise run docs` | Start documentation dev server |
 | `mise run build-embedded-assets` | Build and stage embedded web assets |
 | `mise run build-unified` | Build memoh CLI locally |
-| `mise run bridge:build` | Rebuild bridge binary in dev container |
-| `mise run desktop:dev` | Start Electron desktop app in dev mode (renderer reuses @memohai/web) |
-| `mise run desktop:build` | Build Electron desktop app for release (electron-builder) |
+| `mise run bridge:build` | Build bridge binary into `data/runtime/` |
+| `mise run install-workspace-toolkit` | Install workspace toolkit (bridge binary etc.) into `data/runtime/toolkit/` |
 | `mise run lint` | Run all linters (Go + ESLint) |
 | `mise run lint:fix` | Run all linters with auto-fix |
 | `mise run release` | Release new version (bumpp) |
-| `mise run install-socktainer` | Install socktainer (macOS container backend) |
-| `mise run install-workspace-toolkit` | Install workspace toolkit (bridge binary etc.) |
 
-### Docker Deployment
+### Deployment
+
+The Go server (`memoh-server`) runs as a **local process** on the host. Only stateful infrastructure runs in Docker:
 
 ```bash
-docker compose up -d        # Start all services
-# Visit http://localhost:8082
+docker compose up -d        # Bring up postgres + qdrant + sparse + browser (all bound to 127.0.0.1)
+mise run db-up              # Apply migrations
+mise run build-unified && ./bin/memoh start
+# Visit http://localhost:18082 (dev) or whatever the web frontend is configured to serve
 ```
 
-Production services: `postgres`, `migrate`, `server`, `web`.
-Optional profiles: `qdrant` (vector DB), `sparse` (BM25 search).
+Local server defaults: HTTP `127.0.0.1:18731`, userData under `~/.config/Memoh/` (Linux), `~/Library/Application Support/Memoh/` (macOS), `%APPDATA%\Memoh\` (Windows).
 
 ## Key Development Rules
 
 ### Database, sqlc & Migrations
 
-1. **PostgreSQL SQL queries** are defined in `db/postgres/queries/*.sql`; **SQLite SQL queries** live in `db/sqlite/queries/*.sql`.
-2. All Go files under `internal/db/postgres/sqlc/` and `internal/db/sqlite/sqlc/` are auto-generated by sqlc. **DO NOT modify them manually.**
-3. **Always update both database backends together.** Any schema or query change must update the PostgreSQL and SQLite equivalents in the same change unless the code path is explicitly backend-specific and documented.
-4. After modifying any SQL files (migrations or queries), run `mise run sqlc-generate` to update both generated Go packages.
+1. **PostgreSQL SQL queries** are defined in `db/postgres/queries/*.sql`.
+2. All Go files under `internal/db/postgres/sqlc/` are auto-generated by sqlc. **DO NOT modify them manually.**
+3. After modifying any SQL files (migrations or queries), run `mise run sqlc-generate` to regenerate the Go package.
 
 #### Migration Rules
 
-PostgreSQL migrations live in `db/postgres/migrations/` and follow a dual-update convention:
+PostgreSQL migrations live in `db/postgres/migrations/`:
 
-- **PostgreSQL `0001_init.up.sql` is the canonical full PostgreSQL schema.** It always contains the complete, up-to-date PostgreSQL database definition (all tables, indexes, constraints, etc.). When adding PostgreSQL schema changes, you must **also update `db/postgres/migrations/0001_init.up.sql`** to reflect the final state.
-- **SQLite `0001_init.up.sql` is the canonical full SQLite schema.** SQLite currently uses a single baseline migration at `db/sqlite/migrations/0001_init.up.sql`; when adding schema changes, update this file and its paired down migration.
-- **Incremental PostgreSQL migration files** (`0002_`, `0003_`, ...) contain only the diff needed to upgrade an existing PostgreSQL database. They exist for environments that already have the schema and need to apply only the delta.
-- **Both PostgreSQL and SQLite must be kept in sync**: every schema change requires updating PostgreSQL `0001_init.up.sql`, adding the next PostgreSQL incremental migration pair, and updating SQLite `0001_init.up.sql` / `0001_init.down.sql` to the equivalent final schema.
-- **Both query sets must be kept in sync**: every query change in `db/postgres/queries/*.sql` must have an equivalent SQLite query change in `db/sqlite/queries/*.sql`, with dialect differences handled deliberately (`jsonb` vs JSON1, casts, `ILIKE`, `FOR UPDATE`, date/time functions, arrays).
+- **`0001_init.up.sql` is the canonical full PostgreSQL schema.** It always contains the complete, up-to-date database definition (all tables, indexes, constraints, etc.). When adding schema changes, you must **also update `0001_init.up.sql`** to reflect the final state.
+- **Incremental migration files** (`0002_`, `0003_`, ...) contain only the diff needed to upgrade an existing database. They exist for environments that already have the schema and need to apply only the delta.
 - **Naming**: `{NNNN}_{description}.up.sql` and `{NNNN}_{description}.down.sql`, where `{NNNN}` is a zero-padded sequential number (e.g., `0005`). Always use the next available number.
 - **Paired files**: Every incremental migration **must** have both an `.up.sql` (apply) and a `.down.sql` (rollback) file.
 - **Header comment**: Each file should start with a comment indicating the migration name and a brief description:
@@ -275,7 +253,7 @@ PostgreSQL migrations live in `db/postgres/migrations/` and follow a dual-update
   ```
 - **Idempotent DDL**: Use `IF NOT EXISTS` / `IF EXISTS` guards (e.g., `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `DROP TABLE IF EXISTS`) so migrations are safe to re-run.
 - **Down migration must fully reverse up**: The `.down.sql` must cleanly undo everything its `.up.sql` does, in reverse order.
-- **After creating or modifying migrations**, run `mise run sqlc-generate` to regenerate both Go SQLC packages, then validate both migration tracks (`mise run db-up` for PostgreSQL and SQLite migration/dev tasks where relevant).
+- **After creating or modifying migrations**, run `mise run sqlc-generate` to regenerate the SQLC package, then validate with `mise run db-up`.
 
 ### API Development Workflow
 
@@ -308,17 +286,6 @@ PostgreSQL migrations live in `db/postgres/migrations/` and follow a dual-update
 - i18n via vue-i18n.
 - See `apps/web/AGENTS.md` for detailed frontend conventions.
 
-### Desktop App
-
-- `apps/desktop/` is an [electron-vite](https://electron-vite.github.io/) project (`@memohai/desktop`).
-- The renderer is intentionally a **thin shell**: `src/renderer/src/main.ts` is a single-line `import '@memohai/web/main'` that defers the full bootstrap (router, Pinia, api-client, `App.vue`) to `@memohai/web`.
-- `@memohai/web`'s `package.json` exposes an `exports` map (`./main`, `./App.vue`, `./style.css`, `./*`) so downstream consumers can reuse web modules.
-- `electron.vite.config.ts` mirrors `apps/web/vite.config.ts`: same `@` / `#` path aliases, same `/api` proxy (driven by `MEMOH_WEB_PROXY_TARGET` / `config.toml` via `@memohai/config`).
-- Packaging is handled by `electron-builder` (config in `apps/desktop/electron-builder.yml`); output lands in `apps/desktop/dist/`.
-- The Memoh CLI (`cmd/memoh/`) is bundled into the app at `Resources/cli/memoh` next to `Resources/server/memoh-server`. On first launch (and via the `Install Command Line Tool…` menu item) the main process offers to add `memoh` to PATH (`/usr/local/bin/memoh` symlink on macOS, `~/.local/bin/memoh` on Linux, HKCU PATH on Windows). The CLI talks to the local server at `127.0.0.1:18731`, self-logs in with the `[admin]` credentials in `userData/config.toml`, and shares the same pid file (`local-server.pid.json`) so either side can `start`/`stop` the server. See `apps/desktop/AGENTS.md` § Bundled CLI.
-- `productName` is pinned to `Memoh` so userData lives at `~/Library/Application Support/Memoh/` (macOS), `%APPDATA%\Memoh\` (Windows), `~/.config/Memoh/` (Linux). The Go CLI hard-codes the same product name in `internal/tui/local/paths.go`; if you ever rename, both sides must change together.
-- When desktop needs to diverge from the web experience, replace the re-export in `renderer/src/main.ts` with an inline copy of web's `main.ts` and customize from there — do **not** fork `apps/web` itself.
-
 ### Container / Workspace Management
 
 - Each bot can have an isolated **workspace container** for file editing, command execution, and MCP tool hosting.
@@ -326,7 +293,7 @@ PostgreSQL migrations live in `db/postgres/migrations/` and follow a dual-update
 - The bridge binary (`cmd/bridge/`) runs inside each container, mounting runtime binaries from `$WORKSPACE_RUNTIME_DIR` and UDS sockets from `/run/memoh/`. Bridge prompt templates live in `cmd/bridge/template/`.
 - Container images are standard base images (debian, alpine, ubuntu, etc.) — no dedicated MCP Docker image needed.
 - `internal/workspace/` manages container lifecycle (create, start, stop, reconcile) and maintains a gRPC connection pool.
-- `internal/container/` provides the container runtime abstraction layer and adapter subpackages (`containerd`, `apple`, `docker`, `k8s`).
+- `internal/container/` provides the container runtime abstraction layer (Docker adapter only).
 - SSE-based progress feedback is provided during container image pull and creation.
 
 ## Database Tables
@@ -393,11 +360,11 @@ The main configuration file is `config.toml` (copied from `conf/app.example.toml
 - `[server]` — HTTP listen address
 - `[admin]` — Admin account credentials
 - `[auth]` — JWT authentication settings
-- `[database]` — Database backend selection (`postgres` or `sqlite`)
-- `[container]` — Workspace backend selection (`docker`, `kubernetes`, `containerd`, `apple`) and common workspace image/data/runtime/CNI settings
-- `[containerd]` / `[docker]` / `[kubernetes]` / `[apple]` — Backend-specific runtime configuration
+- `[database]` — Database driver (`postgres` only)
+- `[container]` — Workspace backend (`docker` only) and common workspace image/data/runtime/CNI settings
+- `[docker]` — Docker daemon connection (host)
+- `[local]` — Optional local-disk workspace settings (host-mounted, no container)
 - `[postgres]` — PostgreSQL connection
-- `[sqlite]` — SQLite database file and WAL/lock settings
 - `[qdrant]` — Qdrant vector database connection
 - `[sparse]` — Sparse (BM25) search service connection
 - `[web]` — Web frontend address
@@ -408,9 +375,6 @@ Provider YAML templates in `conf/providers/` define preset configurations for va
 
 Configuration templates available in `conf/`:
 - `app.example.toml` — Default template
-- `app.docker.toml` — Docker deployment
-- `app.apple.toml` — macOS (Apple Virtualization backend)
-- `app.windows.toml` — Windows
 
 Development configuration in `devenv/`:
 - `app.dev.toml` — Development (connects to devenv docker-compose)

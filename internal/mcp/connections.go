@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // Connection represents a stored MCP connection for a bot.
@@ -74,12 +73,12 @@ type ExportResponse struct {
 
 // ConnectionService handles CRUD operations for MCP connections.
 type ConnectionService struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
 // NewConnectionService creates a ConnectionService backed by sqlc queries.
-func NewConnectionService(log *slog.Logger, queries dbstore.Queries) *ConnectionService {
+func NewConnectionService(log *slog.Logger, queries *dbsqlc.Queries) *ConnectionService {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -141,7 +140,7 @@ func (s *ConnectionService) Get(ctx context.Context, botID, id string) (Connecti
 	if err != nil {
 		return Connection{}, err
 	}
-	row, err := s.queries.GetMCPConnectionByID(ctx, sqlc.GetMCPConnectionByIDParams{
+	row, err := s.queries.GetMCPConnectionByID(ctx, dbsqlc.GetMCPConnectionByIDParams{
 		BotID: pgBotID,
 		ID:    pgID,
 	})
@@ -180,7 +179,7 @@ func (s *ConnectionService) Create(ctx context.Context, botID string, req Upsert
 	if authType == "" {
 		authType = "none"
 	}
-	row, err := s.queries.CreateMCPConnection(ctx, sqlc.CreateMCPConnectionParams{
+	row, err := s.queries.CreateMCPConnection(ctx, dbsqlc.CreateMCPConnectionParams{
 		BotID:    botUUID,
 		Name:     name,
 		Type:     mcpType,
@@ -227,7 +226,7 @@ func (s *ConnectionService) Update(ctx context.Context, botID, id string, req Up
 	if err != nil {
 		return Connection{}, err
 	}
-	row, err := s.queries.UpdateMCPConnection(ctx, sqlc.UpdateMCPConnectionParams{
+	row, err := s.queries.UpdateMCPConnection(ctx, dbsqlc.UpdateMCPConnectionParams{
 		BotID:    botUUID,
 		ID:       connUUID,
 		Name:     name,
@@ -272,7 +271,7 @@ func (s *ConnectionService) Import(ctx context.Context, botID string, req Import
 		if err != nil {
 			return nil, err
 		}
-		row, err := s.queries.UpsertMCPConnectionByName(ctx, sqlc.UpsertMCPConnectionByNameParams{
+		row, err := s.queries.UpsertMCPConnectionByName(ctx, dbsqlc.UpsertMCPConnectionByNameParams{
 			BotID:  botUUID,
 			Name:   name,
 			Type:   mcpType,
@@ -316,7 +315,7 @@ func (s *ConnectionService) Delete(ctx context.Context, botID, id string) error 
 	if err != nil {
 		return err
 	}
-	return s.queries.DeleteMCPConnection(ctx, sqlc.DeleteMCPConnectionParams{
+	return s.queries.DeleteMCPConnection(ctx, dbsqlc.DeleteMCPConnectionParams{
 		BotID: botUUID,
 		ID:    connUUID,
 	})
@@ -343,7 +342,7 @@ func (s *ConnectionService) BatchDelete(ctx context.Context, botID string, ids [
 	return lastErr
 }
 
-func normalizeMCPConnection(row sqlc.McpConnection) (Connection, error) {
+func normalizeMCPConnection(row dbsqlc.McpConnection) (Connection, error) {
 	config, err := decodeMCPConfig(row.Config)
 	if err != nil {
 		return Connection{}, err
@@ -399,7 +398,7 @@ func (s *ConnectionService) UpdateProbeResult(ctx context.Context, botID, id, st
 	if err != nil {
 		return err
 	}
-	return s.queries.UpdateMCPConnectionProbeResult(ctx, sqlc.UpdateMCPConnectionProbeResultParams{
+	return s.queries.UpdateMCPConnectionProbeResult(ctx, dbsqlc.UpdateMCPConnectionProbeResultParams{
 		BotID:         pgBotID,
 		ID:            pgID,
 		Status:        status,

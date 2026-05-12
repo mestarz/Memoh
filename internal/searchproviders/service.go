@@ -8,16 +8,15 @@ import (
 	"strings"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 type Service struct {
-	queries dbstore.Queries
+	queries *dbsqlc.Queries
 	logger  *slog.Logger
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries) *Service {
 	return &Service{
 		queries: queries,
 		logger:  log.With(slog.String("service", "search_providers")),
@@ -408,7 +407,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (GetResponse, e
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("marshal config: %w", err)
 	}
-	row, err := s.queries.CreateSearchProvider(ctx, sqlc.CreateSearchProviderParams{
+	row, err := s.queries.CreateSearchProvider(ctx, dbsqlc.CreateSearchProviderParams{
 		Name:     strings.TrimSpace(req.Name),
 		Provider: string(req.Provider),
 		Config:   configJSON,
@@ -432,10 +431,10 @@ func (s *Service) Get(ctx context.Context, id string) (GetResponse, error) {
 	return s.toGetResponse(row), nil
 }
 
-func (s *Service) GetRawByID(ctx context.Context, id string) (sqlc.SearchProvider, error) {
+func (s *Service) GetRawByID(ctx context.Context, id string) (dbsqlc.SearchProvider, error) {
 	pgID, err := db.ParseUUID(id)
 	if err != nil {
-		return sqlc.SearchProvider{}, err
+		return dbsqlc.SearchProvider{}, err
 	}
 	return s.queries.GetSearchProviderByID(ctx, pgID)
 }
@@ -443,7 +442,7 @@ func (s *Service) GetRawByID(ctx context.Context, id string) (sqlc.SearchProvide
 func (s *Service) List(ctx context.Context, provider string) ([]GetResponse, error) {
 	provider = strings.TrimSpace(provider)
 	var (
-		rows []sqlc.SearchProvider
+		rows []dbsqlc.SearchProvider
 		err  error
 	)
 	if provider == "" {
@@ -493,7 +492,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Get
 	if req.Enable != nil {
 		enable = *req.Enable
 	}
-	updated, err := s.queries.UpdateSearchProvider(ctx, sqlc.UpdateSearchProviderParams{
+	updated, err := s.queries.UpdateSearchProvider(ctx, dbsqlc.UpdateSearchProviderParams{
 		ID:       pgID,
 		Name:     name,
 		Provider: provider,
@@ -514,7 +513,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	return s.queries.DeleteSearchProvider(ctx, pgID)
 }
 
-func (s *Service) toGetResponse(row sqlc.SearchProvider) GetResponse {
+func (s *Service) toGetResponse(row dbsqlc.SearchProvider) GetResponse {
 	var cfg map[string]any
 	if len(row.Config) > 0 {
 		if err := json.Unmarshal(row.Config, &cfg); err != nil {
@@ -565,7 +564,7 @@ func (s *Service) EnsureDefaults(ctx context.Context) error {
 		if _, ok := existing[string(dp.Name)]; ok {
 			continue
 		}
-		_, err := s.queries.CreateSearchProvider(ctx, sqlc.CreateSearchProviderParams{
+		_, err := s.queries.CreateSearchProvider(ctx, dbsqlc.CreateSearchProviderParams{
 			Name:     dp.DisplayName,
 			Provider: string(dp.Name),
 			Config:   []byte("{}"),

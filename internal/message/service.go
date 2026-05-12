@@ -12,20 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/message/event"
 )
 
 // DBService persists and reads bot history messages.
 type DBService struct {
-	queries   dbstore.Queries
+	queries   *dbsqlc.Queries
 	logger    *slog.Logger
 	publisher event.Publisher
 }
 
 // NewService creates a message service.
-func NewService(log *slog.Logger, queries dbstore.Queries, publishers ...event.Publisher) *DBService {
+func NewService(log *slog.Logger, queries *dbsqlc.Queries, publishers ...event.Publisher) *DBService {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -78,7 +77,7 @@ func (s *DBService) Persist(ctx context.Context, input PersistInput) (Message, e
 		content = []byte("{}")
 	}
 
-	row, err := s.queries.CreateMessage(ctx, sqlc.CreateMessageParams{
+	row, err := s.queries.CreateMessage(ctx, dbsqlc.CreateMessageParams{
 		BotID:                   pgBotID,
 		SessionID:               pgSessionID,
 		SenderChannelIdentityID: pgSenderChannelIdentityID,
@@ -113,7 +112,7 @@ func (s *DBService) Persist(ctx context.Context, input PersistInput) (Message, e
 		if ref.Ordinal < math.MinInt32 || ref.Ordinal > math.MaxInt32 {
 			return Message{}, fmt.Errorf("asset ordinal out of range: %d", ref.Ordinal)
 		}
-		if _, assetErr := s.queries.CreateMessageAsset(ctx, sqlc.CreateMessageAssetParams{
+		if _, assetErr := s.queries.CreateMessageAsset(ctx, dbsqlc.CreateMessageAssetParams{
 			MessageID:   pgMsgID,
 			Role:        role,
 			Ordinal:     int32(ref.Ordinal),
@@ -171,7 +170,7 @@ func (s *DBService) ListSince(ctx context.Context, botID string, since time.Time
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListMessagesSince(ctx, sqlc.ListMessagesSinceParams{
+	rows, err := s.queries.ListMessagesSince(ctx, dbsqlc.ListMessagesSinceParams{
 		BotID:     pgBotID,
 		CreatedAt: pgtype.Timestamptz{Time: since, Valid: true},
 	})
@@ -189,7 +188,7 @@ func (s *DBService) ListActiveSince(ctx context.Context, botID string, since tim
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListActiveMessagesSince(ctx, sqlc.ListActiveMessagesSinceParams{
+	rows, err := s.queries.ListActiveMessagesSince(ctx, dbsqlc.ListActiveMessagesSinceParams{
 		BotID:     pgBotID,
 		CreatedAt: pgtype.Timestamptz{Time: since, Valid: true},
 	})
@@ -207,7 +206,7 @@ func (s *DBService) ListLatest(ctx context.Context, botID string, limit int32) (
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListMessagesLatest(ctx, sqlc.ListMessagesLatestParams{
+	rows, err := s.queries.ListMessagesLatest(ctx, dbsqlc.ListMessagesLatestParams{
 		BotID:    pgBotID,
 		MaxCount: limit,
 	})
@@ -225,7 +224,7 @@ func (s *DBService) ListBefore(ctx context.Context, botID string, before time.Ti
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListMessagesBefore(ctx, sqlc.ListMessagesBeforeParams{
+	rows, err := s.queries.ListMessagesBefore(ctx, dbsqlc.ListMessagesBeforeParams{
 		BotID:     pgBotID,
 		CreatedAt: pgtype.Timestamptz{Time: before, Valid: true},
 		MaxCount:  limit,
@@ -261,7 +260,7 @@ func (s *DBService) ListSinceBySession(ctx context.Context, sessionID string, si
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListMessagesSinceBySession(ctx, sqlc.ListMessagesSinceBySessionParams{
+	rows, err := s.queries.ListMessagesSinceBySession(ctx, dbsqlc.ListMessagesSinceBySessionParams{
 		SessionID: pgSessionID,
 		CreatedAt: pgtype.Timestamptz{Time: since, Valid: true},
 	})
@@ -279,7 +278,7 @@ func (s *DBService) ListActiveSinceBySession(ctx context.Context, sessionID stri
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListActiveMessagesSinceBySession(ctx, sqlc.ListActiveMessagesSinceBySessionParams{
+	rows, err := s.queries.ListActiveMessagesSinceBySession(ctx, dbsqlc.ListActiveMessagesSinceBySessionParams{
 		SessionID: pgSessionID,
 		CreatedAt: pgtype.Timestamptz{Time: since, Valid: true},
 	})
@@ -297,7 +296,7 @@ func (s *DBService) ListLatestBySession(ctx context.Context, sessionID string, l
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListMessagesLatestBySession(ctx, sqlc.ListMessagesLatestBySessionParams{
+	rows, err := s.queries.ListMessagesLatestBySession(ctx, dbsqlc.ListMessagesLatestBySessionParams{
 		SessionID: pgSessionID,
 		MaxCount:  limit,
 	})
@@ -315,7 +314,7 @@ func (s *DBService) ListBeforeBySession(ctx context.Context, sessionID string, b
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListMessagesBeforeBySession(ctx, sqlc.ListMessagesBeforeBySessionParams{
+	rows, err := s.queries.ListMessagesBeforeBySession(ctx, dbsqlc.ListMessagesBeforeBySessionParams{
 		SessionID: pgSessionID,
 		CreatedAt: pgtype.Timestamptz{Time: before, Valid: true},
 		MaxCount:  limit,
@@ -346,7 +345,7 @@ func (s *DBService) LinkAssets(ctx context.Context, messageID string, assets []A
 		if ref.Ordinal < math.MinInt32 || ref.Ordinal > math.MaxInt32 {
 			return fmt.Errorf("asset ordinal out of range: %d", ref.Ordinal)
 		}
-		if _, assetErr := s.queries.CreateMessageAsset(ctx, sqlc.CreateMessageAssetParams{
+		if _, assetErr := s.queries.CreateMessageAsset(ctx, dbsqlc.CreateMessageAssetParams{
 			MessageID:   pgMsgID,
 			Role:        role,
 			Ordinal:     int32(ref.Ordinal),
@@ -380,7 +379,7 @@ func (s *DBService) DeleteBySession(ctx context.Context, sessionID string) error
 
 // --- Conversion helpers ---
 
-func toMessageFromCreate(row sqlc.CreateMessageRow) Message {
+func toMessageFromCreate(row dbsqlc.CreateMessageRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -410,7 +409,7 @@ func extractPlatformFromMetadata(metadata []byte) pgtype.Text {
 	return pgtype.Text{}
 }
 
-func toMessageFromListRow(row sqlc.ListMessagesRow) Message {
+func toMessageFromListRow(row dbsqlc.ListMessagesRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -432,7 +431,7 @@ func toMessageFromListRow(row sqlc.ListMessagesRow) Message {
 	)
 }
 
-func toMessageFromSessionListRow(row sqlc.ListMessagesBySessionRow) Message {
+func toMessageFromSessionListRow(row dbsqlc.ListMessagesBySessionRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -454,7 +453,7 @@ func toMessageFromSessionListRow(row sqlc.ListMessagesBySessionRow) Message {
 	)
 }
 
-func toMessageFromSinceRow(row sqlc.ListMessagesSinceRow) Message {
+func toMessageFromSinceRow(row dbsqlc.ListMessagesSinceRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -476,7 +475,7 @@ func toMessageFromSinceRow(row sqlc.ListMessagesSinceRow) Message {
 	)
 }
 
-func toMessageFromSinceBySessionRow(row sqlc.ListMessagesSinceBySessionRow) Message {
+func toMessageFromSinceBySessionRow(row dbsqlc.ListMessagesSinceBySessionRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -498,7 +497,7 @@ func toMessageFromSinceBySessionRow(row sqlc.ListMessagesSinceBySessionRow) Mess
 	)
 }
 
-func toMessageFromActiveSinceRow(row sqlc.ListActiveMessagesSinceRow) Message {
+func toMessageFromActiveSinceRow(row dbsqlc.ListActiveMessagesSinceRow) Message {
 	m := toMessageFields(
 		row.ID,
 		row.BotID,
@@ -524,7 +523,7 @@ func toMessageFromActiveSinceRow(row sqlc.ListActiveMessagesSinceRow) Message {
 	return m
 }
 
-func toMessageFromActiveSinceBySessionRow(row sqlc.ListActiveMessagesSinceBySessionRow) Message {
+func toMessageFromActiveSinceBySessionRow(row dbsqlc.ListActiveMessagesSinceBySessionRow) Message {
 	m := toMessageFields(
 		row.ID,
 		row.BotID,
@@ -550,7 +549,7 @@ func toMessageFromActiveSinceBySessionRow(row sqlc.ListActiveMessagesSinceBySess
 	return m
 }
 
-func toMessageFromLatestRow(row sqlc.ListMessagesLatestRow) Message {
+func toMessageFromLatestRow(row dbsqlc.ListMessagesLatestRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -572,7 +571,7 @@ func toMessageFromLatestRow(row sqlc.ListMessagesLatestRow) Message {
 	)
 }
 
-func toMessageFromLatestBySessionRow(row sqlc.ListMessagesLatestBySessionRow) Message {
+func toMessageFromLatestBySessionRow(row dbsqlc.ListMessagesLatestBySessionRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -594,7 +593,7 @@ func toMessageFromLatestBySessionRow(row sqlc.ListMessagesLatestBySessionRow) Me
 	)
 }
 
-func toMessageFromBeforeRow(row sqlc.ListMessagesBeforeRow) Message {
+func toMessageFromBeforeRow(row dbsqlc.ListMessagesBeforeRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -616,7 +615,7 @@ func toMessageFromBeforeRow(row sqlc.ListMessagesBeforeRow) Message {
 	)
 }
 
-func toMessageFromBeforeBySessionRow(row sqlc.ListMessagesBeforeBySessionRow) Message {
+func toMessageFromBeforeBySessionRow(row dbsqlc.ListMessagesBeforeBySessionRow) Message {
 	return toMessageFields(
 		row.ID,
 		row.BotID,
@@ -681,7 +680,7 @@ func toMessageFields(
 	return m
 }
 
-func toMessagesFromList(rows []sqlc.ListMessagesRow) []Message {
+func toMessagesFromList(rows []dbsqlc.ListMessagesRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromListRow(row))
@@ -689,7 +688,7 @@ func toMessagesFromList(rows []sqlc.ListMessagesRow) []Message {
 	return messages
 }
 
-func toMessagesFromSessionList(rows []sqlc.ListMessagesBySessionRow) []Message {
+func toMessagesFromSessionList(rows []dbsqlc.ListMessagesBySessionRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromSessionListRow(row))
@@ -697,7 +696,7 @@ func toMessagesFromSessionList(rows []sqlc.ListMessagesBySessionRow) []Message {
 	return messages
 }
 
-func toMessagesFromSince(rows []sqlc.ListMessagesSinceRow) []Message {
+func toMessagesFromSince(rows []dbsqlc.ListMessagesSinceRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromSinceRow(row))
@@ -705,7 +704,7 @@ func toMessagesFromSince(rows []sqlc.ListMessagesSinceRow) []Message {
 	return messages
 }
 
-func toMessagesFromSinceBySession(rows []sqlc.ListMessagesSinceBySessionRow) []Message {
+func toMessagesFromSinceBySession(rows []dbsqlc.ListMessagesSinceBySessionRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromSinceBySessionRow(row))
@@ -713,7 +712,7 @@ func toMessagesFromSinceBySession(rows []sqlc.ListMessagesSinceBySessionRow) []M
 	return messages
 }
 
-func toMessagesFromActiveSince(rows []sqlc.ListActiveMessagesSinceRow) []Message {
+func toMessagesFromActiveSince(rows []dbsqlc.ListActiveMessagesSinceRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromActiveSinceRow(row))
@@ -721,7 +720,7 @@ func toMessagesFromActiveSince(rows []sqlc.ListActiveMessagesSinceRow) []Message
 	return messages
 }
 
-func toMessagesFromActiveSinceBySession(rows []sqlc.ListActiveMessagesSinceBySessionRow) []Message {
+func toMessagesFromActiveSinceBySession(rows []dbsqlc.ListActiveMessagesSinceBySessionRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromActiveSinceBySessionRow(row))
@@ -729,7 +728,7 @@ func toMessagesFromActiveSinceBySession(rows []sqlc.ListActiveMessagesSinceBySes
 	return messages
 }
 
-func toMessagesFromLatest(rows []sqlc.ListMessagesLatestRow) []Message {
+func toMessagesFromLatest(rows []dbsqlc.ListMessagesLatestRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromLatestRow(row))
@@ -737,7 +736,7 @@ func toMessagesFromLatest(rows []sqlc.ListMessagesLatestRow) []Message {
 	return messages
 }
 
-func toMessagesFromLatestBySession(rows []sqlc.ListMessagesLatestBySessionRow) []Message {
+func toMessagesFromLatestBySession(rows []dbsqlc.ListMessagesLatestBySessionRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromLatestBySessionRow(row))
@@ -746,7 +745,7 @@ func toMessagesFromLatestBySession(rows []sqlc.ListMessagesLatestBySessionRow) [
 }
 
 // toMessagesFromBefore returns messages in oldest-first order (ListMessagesBefore returns DESC; we reverse).
-func toMessagesFromBefore(rows []sqlc.ListMessagesBeforeRow) []Message {
+func toMessagesFromBefore(rows []dbsqlc.ListMessagesBeforeRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for i := len(rows) - 1; i >= 0; i-- {
 		messages = append(messages, toMessageFromBeforeRow(rows[i]))
@@ -754,7 +753,7 @@ func toMessagesFromBefore(rows []sqlc.ListMessagesBeforeRow) []Message {
 	return messages
 }
 
-func toMessagesFromBeforeBySession(rows []sqlc.ListMessagesBeforeBySessionRow) []Message {
+func toMessagesFromBeforeBySession(rows []dbsqlc.ListMessagesBeforeBySessionRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for i := len(rows) - 1; i >= 0; i-- {
 		messages = append(messages, toMessageFromBeforeBySessionRow(rows[i]))

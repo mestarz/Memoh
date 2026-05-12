@@ -9,8 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 const (
@@ -107,7 +106,7 @@ func ResolvePreset(raw string) (Preset, error) {
 	}
 }
 
-func ApplyPreset(ctx context.Context, queries dbstore.Queries, botID, createdByUserID, rawPreset string) error {
+func ApplyPreset(ctx context.Context, queries *dbsqlc.Queries, botID, createdByUserID, rawPreset string) error {
 	if queries == nil {
 		return errors.New("acl queries not configured")
 	}
@@ -122,7 +121,7 @@ func ApplyPreset(ctx context.Context, queries dbstore.Queries, botID, createdByU
 		return err
 	}
 
-	if err := queries.SetBotACLDefaultEffect(ctx, sqlc.SetBotACLDefaultEffectParams{
+	if err := queries.SetBotACLDefaultEffect(ctx, dbsqlc.SetBotACLDefaultEffectParams{
 		ID:               pgBotID,
 		AclDefaultEffect: preset.DefaultEffect,
 	}); err != nil {
@@ -138,7 +137,7 @@ func ApplyPreset(ctx context.Context, queries dbstore.Queries, botID, createdByU
 	return nil
 }
 
-func applyPresetRule(ctx context.Context, queries dbstore.Queries, botID pgtype.UUID, createdByUserID string, rule CreateRuleRequest) error {
+func applyPresetRule(ctx context.Context, queries *dbsqlc.Queries, botID pgtype.UUID, createdByUserID string, rule CreateRuleRequest) error {
 	if err := validateEffect(rule.Effect); err != nil {
 		return err
 	}
@@ -156,7 +155,7 @@ func applyPresetRule(ctx context.Context, queries dbstore.Queries, botID pgtype.
 		return err
 	}
 
-	_, err = queries.CreateBotACLRule(ctx, sqlc.CreateBotACLRuleParams{
+	_, err = queries.CreateBotACLRule(ctx, dbsqlc.CreateBotACLRuleParams{
 		BotID:                  botID,
 		Priority:               rule.Priority,
 		Enabled:                rule.Enabled,

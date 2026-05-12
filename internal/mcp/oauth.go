@@ -18,20 +18,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 	"github.com/memohai/memoh/internal/textutil"
 )
 
 // OAuthService manages OAuth flows for MCP connections.
 type OAuthService struct {
-	queries     dbstore.Queries
+	queries     *dbsqlc.Queries
 	logger      *slog.Logger
 	httpClient  *http.Client
 	callbackURL string
 }
 
-func NewOAuthService(log *slog.Logger, queries dbstore.Queries, callbackURL string) *OAuthService {
+func NewOAuthService(log *slog.Logger, queries *dbsqlc.Queries, callbackURL string) *OAuthService {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -153,7 +152,7 @@ func (s *OAuthService) SaveDiscovery(ctx context.Context, connectionID string, r
 	if err != nil {
 		return err
 	}
-	_, err = s.queries.UpsertMCPOAuthDiscovery(ctx, sqlc.UpsertMCPOAuthDiscoveryParams{
+	_, err = s.queries.UpsertMCPOAuthDiscovery(ctx, dbsqlc.UpsertMCPOAuthDiscoveryParams{
 		ConnectionID:           connUUID,
 		ResourceMetadataUrl:    result.ResourceMetadataURL,
 		AuthorizationServerUrl: result.AuthorizationServerURL,
@@ -205,7 +204,7 @@ func (s *OAuthService) StartAuthorization(ctx context.Context, connectionID, cli
 		} else {
 			clientID = regResult.ClientID
 			dcrSecret := regResult.ClientSecret
-			if err := s.queries.UpdateMCPOAuthPKCEState(ctx, sqlc.UpdateMCPOAuthPKCEStateParams{
+			if err := s.queries.UpdateMCPOAuthPKCEState(ctx, dbsqlc.UpdateMCPOAuthPKCEStateParams{
 				ConnectionID:     connUUID,
 				PkceCodeVerifier: "", // will be set below
 				StateParam:       "", // will be set below
@@ -216,7 +215,7 @@ func (s *OAuthService) StartAuthorization(ctx context.Context, connectionID, cli
 			}
 			if dcrSecret != "" {
 				clientSecret = dcrSecret
-				_ = s.queries.UpdateMCPOAuthClientSecret(ctx, sqlc.UpdateMCPOAuthClientSecretParams{
+				_ = s.queries.UpdateMCPOAuthClientSecret(ctx, dbsqlc.UpdateMCPOAuthClientSecretParams{
 					ConnectionID: connUUID,
 					ClientSecret: dcrSecret,
 				})
@@ -230,7 +229,7 @@ func (s *OAuthService) StartAuthorization(ctx context.Context, connectionID, cli
 
 	// Persist client_secret if provided by the user
 	if clientSecret != "" && clientSecret != token.ClientSecret {
-		_ = s.queries.UpdateMCPOAuthClientSecret(ctx, sqlc.UpdateMCPOAuthClientSecretParams{
+		_ = s.queries.UpdateMCPOAuthClientSecret(ctx, dbsqlc.UpdateMCPOAuthClientSecretParams{
 			ConnectionID: connUUID,
 			ClientSecret: clientSecret,
 		})
@@ -246,7 +245,7 @@ func (s *OAuthService) StartAuthorization(ctx context.Context, connectionID, cli
 		return nil, fmt.Errorf("failed to generate state: %w", err)
 	}
 
-	if err := s.queries.UpdateMCPOAuthPKCEState(ctx, sqlc.UpdateMCPOAuthPKCEStateParams{
+	if err := s.queries.UpdateMCPOAuthPKCEState(ctx, dbsqlc.UpdateMCPOAuthPKCEStateParams{
 		ConnectionID:     connUUID,
 		PkceCodeVerifier: codeVerifier,
 		StateParam:       state,
@@ -308,7 +307,7 @@ func (s *OAuthService) HandleCallback(ctx context.Context, state, code string) (
 		expiresAt = pgtype.Timestamptz{Time: t, Valid: true}
 	}
 
-	if err := s.queries.UpdateMCPOAuthTokens(ctx, sqlc.UpdateMCPOAuthTokensParams{
+	if err := s.queries.UpdateMCPOAuthTokens(ctx, dbsqlc.UpdateMCPOAuthTokensParams{
 		ConnectionID: token.ConnectionID,
 		AccessToken:  tokenResp.AccessToken,
 		RefreshToken: tokenResp.RefreshToken,
@@ -319,7 +318,7 @@ func (s *OAuthService) HandleCallback(ctx context.Context, state, code string) (
 		return "", fmt.Errorf("failed to save tokens: %w", err)
 	}
 
-	_ = s.queries.UpdateMCPConnectionAuthType(ctx, sqlc.UpdateMCPConnectionAuthTypeParams{
+	_ = s.queries.UpdateMCPConnectionAuthType(ctx, dbsqlc.UpdateMCPConnectionAuthTypeParams{
 		ID:       token.ConnectionID,
 		AuthType: "oauth",
 	})
@@ -363,7 +362,7 @@ func (s *OAuthService) GetValidToken(ctx context.Context, connectionID string) (
 			refreshTokenValue = token.RefreshToken
 		}
 
-		if err := s.queries.UpdateMCPOAuthTokens(ctx, sqlc.UpdateMCPOAuthTokensParams{
+		if err := s.queries.UpdateMCPOAuthTokens(ctx, dbsqlc.UpdateMCPOAuthTokensParams{
 			ConnectionID: connUUID,
 			AccessToken:  refreshed.AccessToken,
 			RefreshToken: refreshTokenValue,

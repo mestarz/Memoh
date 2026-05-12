@@ -12,8 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"gopkg.in/yaml.v3"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
 )
 
 // Load reads all .yaml / .yml files from dir and returns parsed provider
@@ -62,7 +61,7 @@ func Load(log *slog.Logger, dir string) ([]ProviderDefinition, error) {
 // upserted by (provider_id, model_id), overwriting name/type/config. When
 // syncModels is false, only provider metadata is synced and no models are
 // added or modified — preserving manual model configuration.
-func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, defs []ProviderDefinition, syncModels bool) error {
+func Sync(ctx context.Context, logger *slog.Logger, queries *dbsqlc.Queries, defs []ProviderDefinition, syncModels bool) error {
 	for _, def := range defs {
 		var icon pgtype.Text
 		if def.Icon != "" {
@@ -83,7 +82,7 @@ func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, def
 			continue
 		}
 
-		provider, err := queries.UpsertRegistryProvider(ctx, sqlc.UpsertRegistryProviderParams{
+		provider, err := queries.UpsertRegistryProvider(ctx, dbsqlc.UpsertRegistryProviderParams{
 			Name:       def.Name,
 			ClientType: def.ClientType,
 			Icon:       icon,
@@ -117,7 +116,7 @@ func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, def
 				typ = "chat"
 			}
 
-			_, err = queries.UpsertRegistryModel(ctx, sqlc.UpsertRegistryModelParams{
+			_, err = queries.UpsertRegistryModel(ctx, dbsqlc.UpsertRegistryModelParams{
 				ModelID:    m.ModelID,
 				Name:       name,
 				ProviderID: provider.ID,

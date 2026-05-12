@@ -41,10 +41,16 @@
           class="w-full"
           @click="openFilePicker"
         >
-          <Spinner v-if="uploading" class="mr-2 size-4" />
+          <Spinner
+            v-if="uploading"
+            class="mr-2 size-4"
+          />
           {{ uploading ? $t('common.uploading') : $t('bots.uploadAvatarImage') }}
         </Button>
-        <p v-if="uploadError" class="text-destructive text-xs">
+        <p
+          v-if="uploadError"
+          class="text-destructive text-xs"
+        >
           {{ uploadError }}
         </p>
 
