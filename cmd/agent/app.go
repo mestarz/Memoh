@@ -53,8 +53,6 @@ import (
 	"github.com/memohai/memoh/internal/conversation/flow"
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
 	emailpkg "github.com/memohai/memoh/internal/email"
 	emailgeneric "github.com/memohai/memoh/internal/email/adapters/generic"
 	emailgmail "github.com/memohai/memoh/internal/email/adapters/gmail"
@@ -150,13 +148,6 @@ func provideDBConn(lc fx.Lifecycle, cfg config.Config) (*pgxpool.Pool, error) {
 	return conn, nil
 }
 
-func providePostgresStore(conn *pgxpool.Pool) (*postgresstore.Store, error) {
-	if conn == nil {
-		return nil, nil
-	}
-	return postgresstore.New(conn)
-}
-
 func provideOverlayProviderRegistry(service ctr.Service, cfg config.Config, rc *boot.RuntimeConfig) *netctl.Registry {
 	registry := netctl.NewRegistry()
 	runtime := netctl.NewContainerRuntimeFromBackend(rc.ContainerBackend, service)
@@ -174,18 +165,18 @@ func provideNetworkService(log *slog.Logger, queries *dbsqlc.Queries, registry *
 	return netctl.NewService(log, queries, registry, service, cfg.Workspace.CNIBinaryDir, cfg.Workspace.CNIConfigDir, cfg.Workspace.DataRoot)
 }
 
-func provideDBQueries(_ config.Config, postgresStore *postgresstore.Store) (*dbsqlc.Queries, error) {
-	if postgresStore == nil {
-		return nil, errors.New("postgres store not configured")
+func provideDBQueries(conn *pgxpool.Pool) (*dbsqlc.Queries, error) {
+	if conn == nil {
+		return nil, errors.New("postgres pool not configured")
 	}
-	return postgresStore.SQLC(), nil
+	return dbsqlc.New(conn), nil
 }
 
-func provideAccountStore(_ config.Config, postgresStore *postgresstore.Store) (dbstore.AccountStore, error) {
-	if postgresStore == nil {
-		return nil, errors.New("postgres account store not configured")
+func provideAccountStore(queries *dbsqlc.Queries) (accounts.AccountStore, error) {
+	if queries == nil {
+		return nil, errors.New("postgres queries not configured")
 	}
-	return postgresStore, nil
+	return accounts.NewPostgresStore(queries), nil
 }
 
 func provideBridgeProvider(manage *workspace.Manager) bridge.Provider {
@@ -910,7 +901,7 @@ func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _
 	})
 }
 
-func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries *dbsqlc.Queries, accountStore dbstore.AccountStore, botService *bots.Service, _ *handlers.WorkspaceContainerHandler, manager *workspace.Manager, mcpConnService *mcp.ConnectionService, toolGateway *mcp.ToolGatewayService, channelManager *channel.Manager, modelsService *models.Service) {
+func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries *dbsqlc.Queries, accountStore accounts.AccountStore, botService *bots.Service, _ *handlers.WorkspaceContainerHandler, manager *workspace.Manager, mcpConnService *mcp.ConnectionService, toolGateway *mcp.ToolGatewayService, channelManager *channel.Manager, modelsService *models.Service) {
 	fmt.Printf("Starting Memoh Agent %s\n", version.GetInfo())
 
 	lc.Append(fx.Hook{
@@ -950,7 +941,7 @@ func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutd
 	})
 }
 
-func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore.AccountStore, cfg config.Config) error {
+func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore accounts.AccountStore, cfg config.Config) error {
 	if accountStore == nil {
 		return errors.New("account store not configured")
 	}
@@ -977,7 +968,7 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore
 		return err
 	}
 
-	user, err := accountStore.CreateUser(ctx, dbstore.CreateUserInput{
+	user, err := accountStore.CreateUser(ctx, accounts.CreateUserInput{
 		IsActive: true,
 		Metadata: []byte("{}"),
 	})
@@ -985,7 +976,7 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, accountStore dbstore
 		return fmt.Errorf("create admin user: %w", err)
 	}
 
-	_, err = accountStore.CreateAccount(ctx, dbstore.CreateAccountInput{
+	_, err = accountStore.CreateAccount(ctx, accounts.CreateAccountInput{
 		UserID:       user.ID,
 		Username:     username,
 		Email:        email,

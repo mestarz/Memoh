@@ -1,4 +1,4 @@
-package postgresstore
+package accounts
 
 import (
 	"context"
@@ -9,34 +9,43 @@ import (
 
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
 )
 
-func (s *Store) CountAccounts(ctx context.Context) (int64, error) {
+// PostgresStore is a postgres-backed implementation of AccountStore.
+type PostgresStore struct {
+	queries *dbsqlc.Queries
+}
+
+// NewPostgresStore returns an AccountStore backed by the given sqlc queries.
+func NewPostgresStore(queries *dbsqlc.Queries) *PostgresStore {
+	return &PostgresStore{queries: queries}
+}
+
+func (s *PostgresStore) CountAccounts(ctx context.Context) (int64, error) {
 	return s.queries.CountAccounts(ctx)
 }
 
-func (s *Store) GetByUserID(ctx context.Context, userID string) (dbstore.AccountRecord, error) {
+func (s *PostgresStore) GetByUserID(ctx context.Context, userID string) (AccountRecord, error) {
 	id, err := db.ParseUUID(userID)
 	if err != nil {
-		return dbstore.AccountRecord{}, err
+		return AccountRecord{}, err
 	}
 	row, err := s.queries.GetAccountByUserID(ctx, id)
 	if err != nil {
-		return dbstore.AccountRecord{}, mapQueryErr(err)
+		return AccountRecord{}, mapQueryErr(err)
 	}
 	return accountRecord(row), nil
 }
 
-func (s *Store) GetByIdentity(ctx context.Context, identity string) (dbstore.AccountRecord, error) {
+func (s *PostgresStore) GetByIdentity(ctx context.Context, identity string) (AccountRecord, error) {
 	row, err := s.queries.GetAccountByIdentity(ctx, pgtype.Text{String: identity, Valid: identity != ""})
 	if err != nil {
-		return dbstore.AccountRecord{}, mapQueryErr(err)
+		return AccountRecord{}, mapQueryErr(err)
 	}
 	return accountRecord(row), nil
 }
 
-func (s *Store) List(ctx context.Context) ([]dbstore.AccountRecord, error) {
+func (s *PostgresStore) List(ctx context.Context) ([]AccountRecord, error) {
 	rows, err := s.queries.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -44,7 +53,7 @@ func (s *Store) List(ctx context.Context) ([]dbstore.AccountRecord, error) {
 	return accountRecords(rows), nil
 }
 
-func (s *Store) Search(ctx context.Context, query string, limit int32) ([]dbstore.AccountRecord, error) {
+func (s *PostgresStore) Search(ctx context.Context, query string, limit int32) ([]AccountRecord, error) {
 	rows, err := s.queries.SearchAccounts(ctx, dbsqlc.SearchAccountsParams{
 		Query:      query,
 		LimitCount: limit,
@@ -55,21 +64,21 @@ func (s *Store) Search(ctx context.Context, query string, limit int32) ([]dbstor
 	return accountRecords(rows), nil
 }
 
-func (s *Store) CreateUser(ctx context.Context, input dbstore.CreateUserInput) (dbstore.AccountRecord, error) {
+func (s *PostgresStore) CreateUser(ctx context.Context, input CreateUserInput) (AccountRecord, error) {
 	row, err := s.queries.CreateUser(ctx, dbsqlc.CreateUserParams{
 		IsActive: input.IsActive,
 		Metadata: input.Metadata,
 	})
 	if err != nil {
-		return dbstore.AccountRecord{}, err
+		return AccountRecord{}, err
 	}
 	return accountRecord(row), nil
 }
 
-func (s *Store) CreateAccount(ctx context.Context, input dbstore.CreateAccountInput) (dbstore.AccountRecord, error) {
+func (s *PostgresStore) CreateAccount(ctx context.Context, input CreateAccountInput) (AccountRecord, error) {
 	userID, err := db.ParseUUID(input.UserID)
 	if err != nil {
-		return dbstore.AccountRecord{}, err
+		return AccountRecord{}, err
 	}
 	row, err := s.queries.CreateAccount(ctx, dbsqlc.CreateAccountParams{
 		UserID:       userID,
@@ -83,12 +92,12 @@ func (s *Store) CreateAccount(ctx context.Context, input dbstore.CreateAccountIn
 		DataRoot:     optionalText(input.DataRoot),
 	})
 	if err != nil {
-		return dbstore.AccountRecord{}, err
+		return AccountRecord{}, err
 	}
 	return accountRecord(row), nil
 }
 
-func (s *Store) UpdateLastLogin(ctx context.Context, accountID string) error {
+func (s *PostgresStore) UpdateLastLogin(ctx context.Context, accountID string) error {
 	id, err := db.ParseUUID(accountID)
 	if err != nil {
 		return err
@@ -97,10 +106,10 @@ func (s *Store) UpdateLastLogin(ctx context.Context, accountID string) error {
 	return err
 }
 
-func (s *Store) UpdateAdmin(ctx context.Context, input dbstore.UpdateAccountAdminInput) (dbstore.AccountRecord, error) {
+func (s *PostgresStore) UpdateAdmin(ctx context.Context, input UpdateAccountAdminInput) (AccountRecord, error) {
 	userID, err := db.ParseUUID(input.UserID)
 	if err != nil {
-		return dbstore.AccountRecord{}, err
+		return AccountRecord{}, err
 	}
 	row, err := s.queries.UpdateAccountAdmin(ctx, dbsqlc.UpdateAccountAdminParams{
 		UserID:      userID,
@@ -110,15 +119,15 @@ func (s *Store) UpdateAdmin(ctx context.Context, input dbstore.UpdateAccountAdmi
 		IsActive:    input.IsActive,
 	})
 	if err != nil {
-		return dbstore.AccountRecord{}, mapQueryErr(err)
+		return AccountRecord{}, mapQueryErr(err)
 	}
 	return accountRecord(row), nil
 }
 
-func (s *Store) UpdateProfile(ctx context.Context, input dbstore.UpdateAccountProfileInput) (dbstore.AccountRecord, error) {
+func (s *PostgresStore) UpdateProfile(ctx context.Context, input UpdateAccountProfileInput) (AccountRecord, error) {
 	userID, err := db.ParseUUID(input.UserID)
 	if err != nil {
-		return dbstore.AccountRecord{}, err
+		return AccountRecord{}, err
 	}
 	row, err := s.queries.UpdateAccountProfile(ctx, dbsqlc.UpdateAccountProfileParams{
 		ID:          userID,
@@ -128,12 +137,12 @@ func (s *Store) UpdateProfile(ctx context.Context, input dbstore.UpdateAccountPr
 		IsActive:    input.IsActive,
 	})
 	if err != nil {
-		return dbstore.AccountRecord{}, mapQueryErr(err)
+		return AccountRecord{}, mapQueryErr(err)
 	}
 	return accountRecord(row), nil
 }
 
-func (s *Store) UpdatePassword(ctx context.Context, input dbstore.UpdateAccountPasswordInput) error {
+func (s *PostgresStore) UpdatePassword(ctx context.Context, input UpdateAccountPasswordInput) error {
 	userID, err := db.ParseUUID(input.UserID)
 	if err != nil {
 		return err
@@ -160,16 +169,16 @@ func optionalText(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: value != ""}
 }
 
-func accountRecords(rows []dbsqlc.User) []dbstore.AccountRecord {
-	items := make([]dbstore.AccountRecord, 0, len(rows))
+func accountRecords(rows []dbsqlc.User) []AccountRecord {
+	items := make([]AccountRecord, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, accountRecord(row))
 	}
 	return items
 }
 
-func accountRecord(row dbsqlc.User) dbstore.AccountRecord {
-	rec := dbstore.AccountRecord{
+func accountRecord(row dbsqlc.User) AccountRecord {
+	rec := AccountRecord{
 		ID:              row.ID.String(),
 		Username:        row.Username.String,
 		Email:           row.Email.String,

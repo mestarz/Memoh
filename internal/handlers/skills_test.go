@@ -31,7 +31,6 @@ import (
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/config"
 	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
 	skillset "github.com/memohai/memoh/internal/skills"
 	"github.com/memohai/memoh/internal/workspace"
 	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
@@ -343,7 +342,7 @@ func newSkillsTestEnvWithMetadata(t *testing.T, metadata map[string]any) *skills
 	cfg.DataRoot = dataRoot
 	db := &skillsTestDB{userID: userID, botID: botID, metadataJSON: metadataJSON}
 	queries := dbsqlc.New(db)
-	accountStore := postgresstore.NewWithQueries(dbsqlc.New(db))
+	accountStore := accounts.NewPostgresStore(dbsqlc.New(db))
 	manager := workspace.NewManager(slog.Default(), nil, nil, cfg, "", nil, queries)
 	handler := NewWorkspaceContainerHandler(
 		slog.Default(),
