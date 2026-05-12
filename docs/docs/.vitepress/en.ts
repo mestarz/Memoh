@@ -16,16 +16,8 @@ export const en = [
         link: '/installation/docker.md'
       },
       {
-        text: 'Kubernetes',
-        link: '/installation/kubernetes.md'
-      },
-      {
         text: 'Workspace Backends',
         link: '/installation/workspace-backends.md'
-      },
-      {
-        text: 'SQLite',
-        link: '/installation/sqlite.md'
       },
     ]
   },

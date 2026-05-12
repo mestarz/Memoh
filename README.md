@@ -48,12 +48,6 @@ cp conf/app.docker.toml config.toml
 docker compose up -d
 ```
 
-Kubernetes deployment (**uses Kubernetes workspaces by default**):
-
-```bash
-kubectl apply -k deploy/kubernetes
-```
-
 > **Install a specific version:**
 > ```bash
 > curl -fsSL https://memoh.sh | MEMOH_VERSION=v0.6.0 sh
@@ -98,7 +92,7 @@ Memoh is built for **always-on continuity** — an AI that stays online, and a m
 ### Core
 
 - 🤖 **Multi-Bot & Multi-User**: Create multiple bots that chat privately, in groups, or with each other. Bots distinguish individual users in group chats, remember each person's context, and support cross-platform identity binding.
-- 📦 **Containerized**: Each bot runs in its own isolated containerd container with a dedicated filesystem and network — like having its own computer. Supports snapshots, data export/import, and versioning.
+- 📦 **Containerized**: Each bot runs in its own isolated Docker container with a dedicated filesystem and network — like having its own computer. Supports snapshots, data export/import, and versioning.
 - 🗂️ **Persistent File System**: Every bot has a writable home directory that survives restarts, upgrades, and migrations. Bots can read, write, and organize files freely; you can browse, upload, download, and edit them visually through the web UI's file manager.
 - 🧠 **Memory Engineering**: LLM-driven fact extraction, hybrid retrieval (dense + sparse + BM25), provider-based long-term memory, memory compaction, and separate session-level context compaction. Pluggable backends: Built-in (off / sparse / dense), [Mem0](https://mem0.ai), OpenViking.
 - 💬 **Broad Channel Coverage**: Telegram, Discord, Lark (Feishu), QQ, Matrix, Misskey, DingTalk, WeCom, WeChat, WeChat Official Account, Email (Mailgun / SMTP / Gmail OAuth), and built-in Web UI.
@@ -117,7 +111,7 @@ Memoh is built for **always-on continuity** — an AI that stays online, and a m
 - 🔐 **Access Control**: Priority-based ACL rules with presets, allow/deny effects, and scope by channel identity, channel type, or conversation.
 - 🧪 **Multi-Model**: OpenAI-compatible, Anthropic, Google, OpenAI Codex, GitHub Copilot, and Edge TTS providers. Per-bot model assignment, provider OAuth, and automatic model import.
 - 🎙️ **Speech & Transcription**: Bots can speak through 10+ TTS providers (Edge, OpenAI, ElevenLabs, Deepgram, Azure, Google, MiniMax, Volcengine, Alibaba, OpenRouter) and listen — voice messages received from Telegram, Discord, etc. are auto-transcribed via STT models (OpenAI / OpenRouter), and bots can transcribe any audio file on demand through a built-in tool.
-- 🚀 **One-Click Deploy**: Docker Compose with automatic migration, containerd setup, and CNI networking.
+- 🚀 **One-Click Deploy**: Docker Compose with automatic migration and per-bot Docker workspace containers.
 
 ## Memory System
 
