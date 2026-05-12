@@ -94,6 +94,12 @@ func superviseXvnc(ctx context.Context) {
 			"-rfbunixpath", rfbUnixPath,
 			"-rfbunixmode", "0666",
 			"-rfbport", "0",
+			// Disable per-host blacklist so partial RFB handshakes (input client
+			// reconnects, gst rfbsrc retries) cannot trip "Too many security
+			// failures" and lock out the loopback host on subsequent display
+			// sessions.
+			"-BlacklistTimeout", "0",
+			"-BlacklistThreshold", "1000000",
 		)
 		cmd.Env = withDisplayEnv(os.Environ())
 		cmd.Stdout = os.Stdout
