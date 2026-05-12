@@ -169,8 +169,7 @@ Memoh/
 │   ├── docker-compose.yml      #   Dev infrastructure compose (postgres + qdrant + sparse on dev ports)
 │   └── app.dev.toml            #   Dev config (connects to devenv docker-compose)
 ├── docker/                     # Workspace container assets (toolkit/)
-├── docs/                       # Documentation site (VitePress)
-├── scripts/                    # Utility scripts (db-up, db-drop, release, install, sync-openrouter-models)
+├── scripts/                    # Utility scripts (db-up, db-drop, release, sync-openrouter-models)
 ├── docker-compose.yml          # Infrastructure compose (postgres + qdrant + sparse + browser, all bound to 127.0.0.1)
 ├── mise.toml                   # mise tasks and tool version definitions
 ├── sqlc.yaml                   # sqlc code generation config

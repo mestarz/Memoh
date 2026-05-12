@@ -27,56 +27,23 @@
 
 ## 快速开始
 
-一键安装（**需先装 [Docker](https://www.docker.com/get-started/)**）：
+本仓库只保留私人部署脚本（**需先装 [Docker](https://www.docker.com/get-started/)**）：
 
 ```bash
-curl -fsSL https://memoh.sh | sh
-```
-
-*全部默认、静默安装：`curl -fsSL ... | sh -s -- -y`*
-
-或手动：
-
-```bash
-git clone --depth 1 https://github.com/memohai/Memoh.git
+git clone https://github.com/mestarz/Memoh.git
 cd Memoh
 cp conf/app.docker.toml config.toml
-# 编辑 config.toml
-docker compose up -d
+# 按需编辑 config.toml
+
+./build.sh          # 构建 server / web 镜像
+./run.sh            # 启动 docker compose 基础设施
+./run.sh -s         # 停止
+./run.sh -r         # 重启 server / web
 ```
-
-Kubernetes 部署（**默认使用 Kubernetes workspace**）：
-
-```bash
-kubectl apply -k deploy/kubernetes
-```
-
-> **安装指定版本：**
-> ```bash
-> curl -fsSL https://memoh.sh | MEMOH_VERSION=v0.6.0 sh
-> ```
->
-> **镜像拉取慢时可用国内镜像：**
-> ```bash
-> curl -fsSL https://memoh.sh | USE_CN_MIRROR=true sh
-> ```
->
-> 不要对整个安装脚本用 `sudo`。需要时脚本内部会自行调用 `sudo docker`。在 macOS 上，或用户已在 `docker` 组时，连 Docker 也不必 sudo。
 
 启动后打开 <http://localhost:8082>。默认账号：`admin` / `admin123`
 
-自定义与生产环境见 [DEPLOYMENT.md](DEPLOYMENT.md)。
-
-文档入口：
-
-- [关于 Memoh](https://docs.memoh.ai/about)
-- [提供方与模型](https://docs.memoh.ai/getting-started/provider-and-model)
-- [机器人设置](https://docs.memoh.ai/getting-started/bot)
-- [会话与讨论模式](https://docs.memoh.ai/getting-started/sessions)
-- [渠道](https://docs.memoh.ai/getting-started/channels)
-- [技能](https://docs.memoh.ai/getting-started/skills)
-- [应用超市](https://docs.memoh.ai/getting-started/supermarket)
-- [斜杠命令](https://docs.memoh.ai/getting-started/slash-commands)
+代码架构与开发约定见 [AGENTS.md](AGENTS.md)。
 
 ## 为什么选 Memoh？
 
