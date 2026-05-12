@@ -103,7 +103,7 @@ func options() fx.Option {
 			provideHeartbeatTriggerer,
 			heartbeat.NewService,
 			compaction.NewService,
-			provideContainerdHandler,
+			provideWorkspaceContainerHandler,
 			provideFederationGateway,
 			provideToolGatewayService,
 			provideBackgroundManager,

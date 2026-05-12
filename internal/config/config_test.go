@@ -119,17 +119,13 @@ default_image = "debian:bookworm-slim"
 	}
 }
 
-func TestLoadReadsBackendSpecificConfigs(t *testing.T) {
+func TestLoadReadsDockerHost(t *testing.T) {
 	t.Parallel()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	data := []byte(`
 [docker]
 host = "unix:///var/run/docker.sock"
-
-[apple]
-socket_path = "/tmp/socktainer.sock"
-binary_path = "/opt/homebrew/bin/socktainer"
 `)
 	if err := os.WriteFile(configPath, data, 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -141,12 +137,6 @@ binary_path = "/opt/homebrew/bin/socktainer"
 	}
 	if cfg.Docker.Host != "unix:///var/run/docker.sock" {
 		t.Fatalf("docker host = %q", cfg.Docker.Host)
-	}
-	if cfg.Apple.SocketPath != "/tmp/socktainer.sock" {
-		t.Fatalf("apple socket path = %q", cfg.Apple.SocketPath)
-	}
-	if cfg.Apple.BinaryPath != "/opt/homebrew/bin/socktainer" {
-		t.Fatalf("apple binary path = %q", cfg.Apple.BinaryPath)
 	}
 }
 

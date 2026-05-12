@@ -27,7 +27,7 @@ import (
 	"github.com/memohai/memoh/internal/workspace"
 )
 
-type ContainerdHandler struct {
+type WorkspaceContainerHandler struct {
 	manager          containerWorkspace
 	cfg              config.WorkspaceConfig
 	containerBackend string
@@ -195,8 +195,8 @@ type ListSnapshotsResponse struct {
 	Snapshots   []SnapshotInfo `json:"snapshots"`
 }
 
-func NewContainerdHandler(log *slog.Logger, manager containerWorkspace, cfg config.WorkspaceConfig, containerBackend string, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *ContainerdHandler {
-	h := &ContainerdHandler{
+func NewWorkspaceContainerHandler(log *slog.Logger, manager containerWorkspace, cfg config.WorkspaceConfig, containerBackend string, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *WorkspaceContainerHandler {
+	h := &WorkspaceContainerHandler{
 		manager:          manager,
 		cfg:              cfg,
 		containerBackend: containerBackend,
@@ -211,7 +211,7 @@ func NewContainerdHandler(log *slog.Logger, manager containerWorkspace, cfg conf
 	return h
 }
 
-func (h *ContainerdHandler) Register(e *echo.Echo) {
+func (h *WorkspaceContainerHandler) Register(e *echo.Echo) {
 	group := e.Group("/bots/:bot_id/container")
 	group.POST("", h.CreateContainer)
 	group.GET("", h.GetContainer)
@@ -263,7 +263,7 @@ func (h *ContainerdHandler) Register(e *echo.Echo) {
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container [post].
-func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
+func (h *WorkspaceContainerHandler) CreateContainer(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -456,7 +456,7 @@ func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container [get].
-func (h *ContainerdHandler) GetContainer(c echo.Context) error {
+func (h *WorkspaceContainerHandler) GetContainer(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -491,7 +491,7 @@ func (h *ContainerdHandler) GetContainer(c echo.Context) error {
 // @Success 200 {object} GetContainerMetricsResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/metrics [get].
-func (h *ContainerdHandler) GetContainerMetrics(c echo.Context) error {
+func (h *WorkspaceContainerHandler) GetContainerMetrics(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -533,7 +533,7 @@ func (h *ContainerdHandler) GetContainerMetrics(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container [delete].
-func (h *ContainerdHandler) DeleteContainer(c echo.Context) error {
+func (h *WorkspaceContainerHandler) DeleteContainer(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -553,7 +553,7 @@ func (h *ContainerdHandler) DeleteContainer(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/start [post].
-func (h *ContainerdHandler) StartContainer(c echo.Context) error {
+func (h *WorkspaceContainerHandler) StartContainer(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -575,7 +575,7 @@ func (h *ContainerdHandler) StartContainer(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/stop [post].
-func (h *ContainerdHandler) StopContainer(c echo.Context) error {
+func (h *WorkspaceContainerHandler) StopContainer(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -599,7 +599,7 @@ func (h *ContainerdHandler) StopContainer(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Failure 501 {object} ErrorResponse "Snapshots currently not supported on this backend"
 // @Router /bots/{bot_id}/container/snapshots [post].
-func (h *ContainerdHandler) CreateSnapshot(c echo.Context) error {
+func (h *WorkspaceContainerHandler) CreateSnapshot(c echo.Context) error {
 	if h.containerBackend == "apple" {
 		return echo.NewHTTPError(http.StatusNotImplemented, "snapshots currently not supported on Apple Container backend")
 	}
@@ -640,7 +640,7 @@ func (h *ContainerdHandler) CreateSnapshot(c echo.Context) error {
 // @Success 200 {object} ListSnapshotsResponse
 // @Failure 501 {object} ErrorResponse "Snapshots currently not supported on this backend"
 // @Router /bots/{bot_id}/container/snapshots [get].
-func (h *ContainerdHandler) ListSnapshots(c echo.Context) error {
+func (h *WorkspaceContainerHandler) ListSnapshots(c echo.Context) error {
 	if h.containerBackend == "apple" {
 		return echo.NewHTTPError(http.StatusNotImplemented, "snapshots currently not supported on Apple Container backend")
 	}
@@ -772,7 +772,7 @@ func (h *ContainerdHandler) ListSnapshots(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/snapshots/rollback [post].
-func (h *ContainerdHandler) RollbackSnapshot(c echo.Context) error {
+func (h *WorkspaceContainerHandler) RollbackSnapshot(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -803,7 +803,7 @@ func (h *ContainerdHandler) RollbackSnapshot(c echo.Context) error {
 // @Success 200 {file} file
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/data/export [post].
-func (h *ContainerdHandler) ExportContainerData(c echo.Context) error {
+func (h *WorkspaceContainerHandler) ExportContainerData(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -835,7 +835,7 @@ func (h *ContainerdHandler) ExportContainerData(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/data/import [post].
-func (h *ContainerdHandler) ImportContainerData(c echo.Context) error {
+func (h *WorkspaceContainerHandler) ImportContainerData(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -868,7 +868,7 @@ func (h *ContainerdHandler) ImportContainerData(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/data/restore [post].
-func (h *ContainerdHandler) RestorePreservedData(c echo.Context) error {
+func (h *WorkspaceContainerHandler) RestorePreservedData(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -958,7 +958,7 @@ func snapshotLineage(root string, all []ctr.SnapshotInfo) ([]ctr.SnapshotInfo, b
 // ---------- auth helpers ----------
 
 // requireBotAccess extracts bot_id from path, validates user auth, and authorizes bot access.
-func (h *ContainerdHandler) requireBotAccess(c echo.Context) (string, error) {
+func (h *WorkspaceContainerHandler) requireBotAccess(c echo.Context) (string, error) {
 	channelIdentityID, err := h.requireChannelIdentityID(c)
 	if err != nil {
 		return "", err
@@ -973,17 +973,17 @@ func (h *ContainerdHandler) requireBotAccess(c echo.Context) (string, error) {
 	return botID, nil
 }
 
-func (*ContainerdHandler) requireChannelIdentityID(c echo.Context) (string, error) {
+func (*WorkspaceContainerHandler) requireChannelIdentityID(c echo.Context) (string, error) {
 	return RequireChannelIdentityID(c)
 }
 
-func (h *ContainerdHandler) authorizeBotAccess(ctx context.Context, channelIdentityID, botID string) (bots.Bot, error) {
+func (h *WorkspaceContainerHandler) authorizeBotAccess(ctx context.Context, channelIdentityID, botID string) (bots.Bot, error) {
 	return AuthorizeBotAccess(ctx, h.botService, h.accountService, channelIdentityID, botID)
 }
 
 // requireBotAccessWithGuest is like requireBotAccess but also allows guest access
 // via ACL when the caller explicitly opts into guest-compatible access.
-func (h *ContainerdHandler) requireBotAccessWithGuest(c echo.Context) (string, error) {
+func (h *WorkspaceContainerHandler) requireBotAccessWithGuest(c echo.Context) (string, error) {
 	channelIdentityID, err := h.requireChannelIdentityID(c)
 	if err != nil {
 		return "", err

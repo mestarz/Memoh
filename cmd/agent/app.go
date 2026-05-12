@@ -212,7 +212,7 @@ func provideWorkspaceManager(lc fx.Lifecycle, log *slog.Logger, service ctr.Serv
 		},
 	})
 	runtimeSvc := workspace.NewRuntimeRouter(service, localSvc)
-	return workspace.NewManager(log, runtimeSvc, networkController, cfg.Workspace, cfg.Containerd.Namespace, conn, queries)
+	return workspace.NewManager(log, runtimeSvc, networkController, cfg.Workspace, "", conn, queries)
 }
 
 func provideMemoryLLM(modelsService *models.Service, settingsService *settings.Service, queries dbstore.Queries, log *slog.Logger) memprovider.LLM {
@@ -331,7 +331,7 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 	}
 }
 
-func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, appSettingsSvc *appsettings.Service) *flow.Resolver {
+func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.WorkspaceContainerHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, appSettingsSvc *appsettings.Service) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetAppSettings(appSettingsSvc)
@@ -439,7 +439,7 @@ func provideChannelRouter(
 	heartbeatService *heartbeat.Service,
 	compactionService *compaction.Service,
 	queries dbstore.Queries,
-	containerdHandler *handlers.ContainerdHandler,
+	containerdHandler *handlers.WorkspaceContainerHandler,
 	provider bridge.Provider,
 	pipeline *pipelinepkg.Pipeline,
 	eventStore *pipelinepkg.EventStore,
@@ -511,11 +511,11 @@ func provideChannelLifecycleService(channelStore *channel.Store, channelManager 
 	return channel.NewLifecycle(channelStore, channelManager)
 }
 
-func provideContainerdHandler(log *slog.Logger, manager *workspace.Manager, cfg config.Config, rc *boot.RuntimeConfig, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *handlers.ContainerdHandler {
-	return handlers.NewContainerdHandler(log, manager, cfg.Workspace, rc.ContainerBackend, botService, accountService, policyService)
+func provideWorkspaceContainerHandler(log *slog.Logger, manager *workspace.Manager, cfg config.Config, rc *boot.RuntimeConfig, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service) *handlers.WorkspaceContainerHandler {
+	return handlers.NewWorkspaceContainerHandler(log, manager, cfg.Workspace, rc.ContainerBackend, botService, accountService, policyService)
 }
 
-func provideFederationGateway(log *slog.Logger, containerdHandler *handlers.ContainerdHandler) *handlers.MCPFederationGateway {
+func provideFederationGateway(log *slog.Logger, containerdHandler *handlers.WorkspaceContainerHandler) *handlers.MCPFederationGateway {
 	return handlers.NewMCPFederationGateway(log, containerdHandler)
 }
 
@@ -532,7 +532,7 @@ func provideOAuthService(log *slog.Logger, queries dbstore.Queries, cfg config.C
 	return mcp.NewOAuthService(log, queries, callbackURL)
 }
 
-func provideToolGatewayService(log *slog.Logger, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, mcpConnService *mcp.ConnectionService, containerdHandler *handlers.ContainerdHandler) *mcp.ToolGatewayService {
+func provideToolGatewayService(log *slog.Logger, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, mcpConnService *mcp.ConnectionService, containerdHandler *handlers.WorkspaceContainerHandler) *mcp.ToolGatewayService {
 	fedGateway.SetOAuthService(oauthService)
 	fedSource := mcpfederation.NewSource(log, fedGateway, mcpConnService)
 	svc := mcp.NewToolGatewayService(log, []mcp.ToolSource{fedSource})
@@ -570,7 +570,7 @@ func provideToolProviders(log *slog.Logger, channelManager *channel.Manager, reg
 	}
 }
 
-func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountService *accounts.Service, _ config.Config, provider bridge.Provider, memoryRegistry *memprovider.Registry, settingsService *settings.Service, _ *handlers.ContainerdHandler) *handlers.MemoryHandler {
+func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountService *accounts.Service, _ config.Config, provider bridge.Provider, memoryRegistry *memprovider.Registry, settingsService *settings.Service, _ *handlers.WorkspaceContainerHandler) *handlers.MemoryHandler {
 	h := handlers.NewMemoryHandler(log, botService, accountService)
 	h.SetMemoryRegistry(memoryRegistry)
 	h.SetSettingsService(settingsService)
@@ -802,17 +802,17 @@ func startEmailManager(lc fx.Lifecycle, emailManager *emailpkg.Manager) {
 type serverParams struct {
 	fx.In
 
-	Logger            *slog.Logger
-	RuntimeConfig     *boot.RuntimeConfig
-	Config            config.Config
-	ServerHandlers    []server.Handler `group:"server_handlers"`
-	ContainerdHandler *handlers.ContainerdHandler
+	Logger                    *slog.Logger
+	RuntimeConfig             *boot.RuntimeConfig
+	Config                    config.Config
+	ServerHandlers            []server.Handler `group:"server_handlers"`
+	WorkspaceContainerHandler *handlers.WorkspaceContainerHandler
 }
 
 func provideServer(params serverParams) *server.Server {
 	allHandlers := make([]server.Handler, 0, len(params.ServerHandlers)+1)
 	allHandlers = append(allHandlers, params.ServerHandlers...)
-	allHandlers = append(allHandlers, params.ContainerdHandler)
+	allHandlers = append(allHandlers, params.WorkspaceContainerHandler)
 	return server.NewServer(params.Logger, params.RuntimeConfig.ServerAddr, params.Config.Auth.JWTSecret, allHandlers...)
 }
 
@@ -912,7 +912,7 @@ func startChannelManager(lc fx.Lifecycle, channelManager *channel.Manager) {
 	})
 }
 
-func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _ *handlers.ContainerdHandler, _ *mcp.ToolGatewayService) {
+func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _ *handlers.WorkspaceContainerHandler, _ *mcp.ToolGatewayService) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go manager.ReconcileContainers(ctx)
@@ -921,7 +921,7 @@ func startContainerReconciliation(lc fx.Lifecycle, manager *workspace.Manager, _
 	})
 }
 
-func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries dbstore.Queries, accountStore dbstore.AccountStore, botService *bots.Service, _ *handlers.ContainerdHandler, manager *workspace.Manager, mcpConnService *mcp.ConnectionService, toolGateway *mcp.ToolGatewayService, channelManager *channel.Manager, modelsService *models.Service) {
+func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries dbstore.Queries, accountStore dbstore.AccountStore, botService *bots.Service, _ *handlers.WorkspaceContainerHandler, manager *workspace.Manager, mcpConnService *mcp.ConnectionService, toolGateway *mcp.ToolGatewayService, channelManager *channel.Manager, modelsService *models.Service) {
 	fmt.Printf("Starting Memoh Agent %s\n", version.GetInfo())
 
 	lc.Append(fx.Hook{
@@ -1084,7 +1084,7 @@ func (c *lazyLLMClient) resolve(ctx context.Context, botID string) (memprovider.
 }
 
 type skillLoaderAdapter struct {
-	handler *handlers.ContainerdHandler
+	handler *handlers.WorkspaceContainerHandler
 }
 
 func (a *skillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]flow.SkillEntry, error) {
@@ -1171,7 +1171,7 @@ func (a *gatewayAssetLoaderAdapter) OpenForGateway(ctx context.Context, botID, c
 }
 
 type commandSkillLoaderAdapter struct {
-	handler *handlers.ContainerdHandler
+	handler *handlers.WorkspaceContainerHandler
 }
 
 func (a *commandSkillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]command.Skill, error) {

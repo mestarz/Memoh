@@ -42,7 +42,7 @@ type terminalControlMessage struct {
 // @Success 200 {object} terminalInfoResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/terminal [get].
-func (h *ContainerdHandler) GetTerminalInfo(c echo.Context) error {
+func (h *WorkspaceContainerHandler) GetTerminalInfo(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (h *ContainerdHandler) GetTerminalInfo(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/terminal/ws [get].
-func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
+func (h *WorkspaceContainerHandler) HandleTerminalWS(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err

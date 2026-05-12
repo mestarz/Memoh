@@ -68,7 +68,7 @@ type displayRuntimeProbe struct {
 // @Success 200 {object} displayInfoResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/display [get].
-func (h *ContainerdHandler) GetDisplayInfo(c echo.Context) error {
+func (h *WorkspaceContainerHandler) GetDisplayInfo(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (h *ContainerdHandler) GetDisplayInfo(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 503 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/display/webrtc/offer [post].
-func (h *ContainerdHandler) HandleDisplayWebRTCOffer(c echo.Context) error {
+func (h *WorkspaceContainerHandler) HandleDisplayWebRTCOffer(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -175,7 +175,7 @@ func (h *ContainerdHandler) HandleDisplayWebRTCOffer(c echo.Context) error {
 // @Success 200 {object} displaySessionListResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/display/sessions [get].
-func (h *ContainerdHandler) ListDisplaySessions(c echo.Context) error {
+func (h *WorkspaceContainerHandler) ListDisplaySessions(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -196,7 +196,7 @@ func (h *ContainerdHandler) ListDisplaySessions(c echo.Context) error {
 // @Success 204
 // @Failure 404 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/display/sessions/{session_id} [delete].
-func (h *ContainerdHandler) CloseDisplaySession(c echo.Context) error {
+func (h *WorkspaceContainerHandler) CloseDisplaySession(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -229,7 +229,7 @@ type displayPrepareStreamEvent struct {
 // @Success 200 {string} string "SSE stream of display preparation events"
 // @Failure 404 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/display/prepare [post].
-func (h *ContainerdHandler) PrepareDisplay(c echo.Context) error {
+func (h *WorkspaceContainerHandler) PrepareDisplay(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -787,7 +787,7 @@ func probeDisplayRuntime(ctx context.Context, client *bridge.Client) (displayRun
 	return probe, false
 }
 
-func (*ContainerdHandler) displayNATIPs(c echo.Context, candidateHost string) []string {
+func (*WorkspaceContainerHandler) displayNATIPs(c echo.Context, candidateHost string) []string {
 	ctx := c.Request().Context()
 	hosts := []string{
 		candidateHost,

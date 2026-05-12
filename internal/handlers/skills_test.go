@@ -307,7 +307,7 @@ func TestListSkillsAPIUsesConfiguredDiscoveryRoots(t *testing.T) {
 }
 
 type skillsTestEnv struct {
-	handler  *ContainerdHandler
+	handler  *WorkspaceContainerHandler
 	dataRoot string
 	botID    string
 	userID   string
@@ -345,7 +345,7 @@ func newSkillsTestEnvWithMetadata(t *testing.T, metadata map[string]any) *skills
 	queries := postgresstore.NewQueries(sqlc.New(db))
 	accountStore := postgresstore.NewWithQueries(sqlc.New(db))
 	manager := workspace.NewManager(slog.Default(), nil, nil, cfg, "", nil, queries)
-	handler := NewContainerdHandler(
+	handler := NewWorkspaceContainerHandler(
 		slog.Default(),
 		manager,
 		cfg,

@@ -57,7 +57,7 @@ type skillsOpResponse struct {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/skills [get].
-func (h *ContainerdHandler) ListSkills(c echo.Context) error {
+func (h *WorkspaceContainerHandler) ListSkills(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func (h *ContainerdHandler) ListSkills(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/skills [post].
-func (h *ContainerdHandler) UpsertSkills(c echo.Context) error {
+func (h *WorkspaceContainerHandler) UpsertSkills(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (h *ContainerdHandler) UpsertSkills(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/skills [delete].
-func (h *ContainerdHandler) DeleteSkills(c echo.Context) error {
+func (h *WorkspaceContainerHandler) DeleteSkills(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -175,7 +175,7 @@ func (h *ContainerdHandler) DeleteSkills(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /bots/{bot_id}/container/skills/actions [post].
-func (h *ContainerdHandler) ApplySkillAction(c echo.Context) error {
+func (h *WorkspaceContainerHandler) ApplySkillAction(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func (h *ContainerdHandler) ApplySkillAction(c echo.Context) error {
 }
 
 // LoadSkills loads the effective skills from the container for the given bot.
-func (h *ContainerdHandler) LoadSkills(ctx context.Context, botID string) ([]SkillItem, error) {
+func (h *WorkspaceContainerHandler) LoadSkills(ctx context.Context, botID string) ([]SkillItem, error) {
 	client, err := h.getGRPCClient(ctx, botID)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func (h *ContainerdHandler) LoadSkills(ctx context.Context, botID string) ([]Ski
 	return skillItemsFromEntries(items), nil
 }
 
-func (h *ContainerdHandler) listSkillsFromContainer(ctx context.Context, botID string) ([]SkillItem, error) {
+func (h *WorkspaceContainerHandler) listSkillsFromContainer(ctx context.Context, botID string) ([]SkillItem, error) {
 	client, err := h.getGRPCClient(ctx, botID)
 	if err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func (h *ContainerdHandler) listSkillsFromContainer(ctx context.Context, botID s
 	return skillItemsFromEntries(items), nil
 }
 
-func (h *ContainerdHandler) skillDiscoveryRoots(ctx context.Context, botID string) ([]string, error) {
+func (h *WorkspaceContainerHandler) skillDiscoveryRoots(ctx context.Context, botID string) ([]string, error) {
 	if h.botService != nil {
 		bot, err := h.botService.Get(ctx, botID)
 		if err == nil {
