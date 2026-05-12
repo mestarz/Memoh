@@ -65,6 +65,32 @@ docker restart workspace-<bot-id>     # 或在 web 上停启该 bot
 
 代码架构与开发约定见 [AGENTS.md](AGENTS.md)。
 
+### 容器内代理配置
+
+bot 的 workspace 容器内（apt / curl / chromium 等）若需走代理，在 `config.toml` 的 `[container]` 段配置。注意所有地址都是 **容器视角**：host 上的服务一般通过 `172.17.0.1`（Docker 默认 bridge gateway）或 `host.docker.internal` 访问，**不要写 `127.0.0.1`**。
+
+```toml
+[container]
+# 统一代理：注入容器 HTTP_PROXY/HTTPS_PROXY/http_proxy/https_proxy 四个 env，
+# apt/curl/wget 等读 env 的工具与 chromium 默认都用它。
+http_proxy = "http://172.17.0.1:7890"
+
+# 浏览器专用代理（可选）：覆盖统一代理，仅 chromium 通过 --proxy-server 使用。
+# 支持 http://、https://、socks5://。常用于浏览器走 socks5、其他工具走 http。
+browser_proxy = "socks5://172.17.0.1:20170"
+
+# bypass 列表：env 与 chromium --proxy-bypass-list 共用，bridge 自动做语法转换。
+no_proxy = "127.0.0.1,10.8.0.*,192.168.*,::1,localhost,.taptap.cn,.zhihu.com"
+```
+
+要点：
+
+- 三个字段都是可选的，可以只配 `browser_proxy`（仅浏览器走代理），也可以三个都配。
+- chromium Linux 不读 `http_proxy` env，必须由 bridge 显式传 `--proxy-server`；本机制已做好。
+- `no_proxy` 用标准 NO_PROXY 语法（`.example.com` 表示包含子域）。bridge 转给 chromium 时会自动改写为 `*.example.com`。**不建议**用 `*.foo.*` 这种中间通配，apt/curl 不识别。
+- 兼容旧的 `MEMOH_WORKSPACE_PROXY` host 环境变量：当 toml 未配 `http_proxy` 时回退使用它。
+- 改完配置后 `systemctl --user restart memoh-server.service`，并重启对应 bot 容器（`docker rm -f workspace-<bot-id>` 或在 web 上停启 bot）让新 env 生效。
+
 ## 为什么选 Memoh？
 
 设计取向是**常连不断**：AI 一直在线，数据留在你手里。
