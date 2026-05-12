@@ -31,3 +31,43 @@ func TestIsBrowserArgRejectsShellCommandsContainingBrowserText(t *testing.T) {
 		}
 	}
 }
+
+func TestChromiumBypassListNormalizesNoProxySyntax(t *testing.T) {
+	t.Parallel()
+
+	got := chromiumBypassList(
+		"127.0.0.1, localhost,.example.com",
+		"::1,*.foo.bar,127.0.0.1,10.0.0.0/8",
+	)
+	want := "127.0.0.1,localhost,*.example.com,::1,*.foo.bar,10.0.0.0/8"
+	if got != want {
+		t.Fatalf("chromiumBypassList mismatch:\n got: %s\nwant: %s", got, want)
+	}
+}
+
+func TestChromiumBypassListEmpty(t *testing.T) {
+	t.Parallel()
+
+	if got := chromiumBypassList("", "  ,  ,"); got != "" {
+		t.Fatalf("expected empty bypass list, got %q", got)
+	}
+}
+
+func TestResolveBrowserProxyPrecedence(t *testing.T) {
+	t.Setenv("MEMOH_BROWSER_PROXY", "")
+	t.Setenv("HTTPS_PROXY", "")
+	t.Setenv("https_proxy", "")
+	t.Setenv("HTTP_PROXY", "http://up:8080")
+	t.Setenv("http_proxy", "")
+	if got := resolveBrowserProxy(); got != "http://up:8080" {
+		t.Fatalf("HTTP_PROXY fallback: got %q", got)
+	}
+	t.Setenv("HTTPS_PROXY", "http://https:9090")
+	if got := resolveBrowserProxy(); got != "http://https:9090" {
+		t.Fatalf("HTTPS_PROXY priority: got %q", got)
+	}
+	t.Setenv("MEMOH_BROWSER_PROXY", "http://browser:7777")
+	if got := resolveBrowserProxy(); got != "http://browser:7777" {
+		t.Fatalf("MEMOH_BROWSER_PROXY override: got %q", got)
+	}
+}

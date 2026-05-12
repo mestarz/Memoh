@@ -39,6 +39,21 @@ data_root = "data"
 # Run `mise run install-workspace-toolkit` and `mise run bridge:build` to
 # populate it.
 runtime_dir = "data/runtime"
+# HTTP proxy for everything inside the workspace container (apt, curl, the
+# in-container chromium browser, etc.). The address must be reachable *from
+# the container's network namespace* — usually the host's Docker bridge
+# gateway, e.g. http://172.17.0.1:7890, NOT 127.0.0.1 (which is the
+# container itself). Leave empty to disable; falls back to the legacy
+# MEMOH_WORKSPACE_PROXY env var if both are empty.
+# http_proxy = "http://172.17.0.1:7890"
+# Comma-separated bypass list. Standard NO_PROXY syntax: hostnames, IPs,
+# CIDRs, "*.example.com" wildcards, ".example.com" subdomain prefix
+# (auto-translated to "*.example.com" for chromium).
+# no_proxy = "127.0.0.1,localhost,::1,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,.local,.cn"
+# Optional: override http_proxy just for the in-container chromium browser
+# (the rest of the container still sees http_proxy). Leave empty to reuse
+# http_proxy above.
+# browser_proxy = ""
 
 [docker]
 # Leave empty to use Docker's standard environment discovery (DOCKER_HOST,

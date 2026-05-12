@@ -190,6 +190,19 @@ type WorkspaceConfig struct {
 	CNIBinaryDir    string `toml:"cni_bin_dir"`
 	CNIConfigDir    string `toml:"cni_conf_dir"`
 	RuntimeDir      string `toml:"runtime_dir"`
+	// HTTPProxy is the proxy URL injected into every workspace container as
+	// http_proxy/https_proxy. The address is from the *container's* point of
+	// view (e.g. "http://172.17.0.1:7890" for the default Docker bridge), not
+	// the host's loopback. Falls back to the MEMOH_WORKSPACE_PROXY env var
+	// when empty so existing deployments keep working.
+	HTTPProxy string `toml:"http_proxy"`
+	// NoProxy is the comma-separated bypass list injected as no_proxy/NO_PROXY
+	// into the container. Standard NO_PROXY syntax: hostnames, IPs, CIDRs,
+	// "*.example.com" wildcards, ".example.com" subdomain prefix.
+	NoProxy string `toml:"no_proxy"`
+	// BrowserProxy optionally overrides HTTPProxy for the in-container
+	// chromium instance launched by the bridge. Empty = reuse HTTPProxy.
+	BrowserProxy string `toml:"browser_proxy"`
 }
 
 // ImageRef returns the fully qualified image reference for the base image,

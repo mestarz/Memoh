@@ -366,14 +366,31 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 		)
 	}
 	// Inject HTTP proxy into workspace containers so that apt-get / apk / curl
-	// inside the workspace can reach the internet during desktop package installation.
-	if proxy := strings.TrimSpace(os.Getenv("MEMOH_WORKSPACE_PROXY")); proxy != "" {
+	// inside the workspace and the in-container chromium can reach the
+	// internet. The proxy URL is from the container's point of view (typically
+	// the host bridge gateway, e.g. http://172.17.0.1:7890). Config-file value
+	// wins; MEMOH_WORKSPACE_PROXY env is kept as a fallback for legacy
+	// deployments.
+	proxy := strings.TrimSpace(m.cfg.HTTPProxy)
+	if proxy == "" {
+		proxy = strings.TrimSpace(os.Getenv("MEMOH_WORKSPACE_PROXY"))
+	}
+	if proxy != "" {
 		env = append(env,
 			"http_proxy="+proxy,
 			"https_proxy="+proxy,
 			"HTTP_PROXY="+proxy,
 			"HTTPS_PROXY="+proxy,
 		)
+	}
+	if noProxy := strings.TrimSpace(m.cfg.NoProxy); noProxy != "" {
+		env = append(env,
+			"no_proxy="+noProxy,
+			"NO_PROXY="+noProxy,
+		)
+	}
+	if browserProxy := strings.TrimSpace(m.cfg.BrowserProxy); browserProxy != "" {
+		env = append(env, "MEMOH_BROWSER_PROXY="+browserProxy)
 	}
 	env = append(env, skillEnv...)
 

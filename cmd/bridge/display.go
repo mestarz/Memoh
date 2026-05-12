@@ -336,18 +336,63 @@ func startDisplayBrowser(ctx context.Context) {
 	if url == "" {
 		url = "about:blank"
 	}
-	startDisplayCommand(ctx, "browser", browser,
+	args := []string{
 		"--no-sandbox",
 		"--disable-dev-shm-usage",
 		"--disable-gpu",
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--remote-debugging-address=127.0.0.1",
-		"--remote-debugging-port="+displayBrowserCDPPort,
+		"--remote-debugging-port=" + displayBrowserCDPPort,
 		"--remote-allow-origins=*",
-		"--user-data-dir="+displayBrowserProfile,
-		url,
-	)
+		"--user-data-dir=" + displayBrowserProfile,
+	}
+	if proxy := resolveBrowserProxy(); proxy != "" {
+		args = append(args, "--proxy-server="+proxy)
+		if bypass := chromiumBypassList(os.Getenv("NO_PROXY"), os.Getenv("no_proxy")); bypass != "" {
+			args = append(args, "--proxy-bypass-list="+bypass)
+		}
+	}
+	args = append(args, url)
+	startDisplayCommand(ctx, "browser", browser, args...)
+}
+
+// resolveBrowserProxy picks the proxy URL chromium should use, in order:
+// MEMOH_BROWSER_PROXY (per-bridge override), then HTTPS_PROXY, then HTTP_PROXY.
+// All three are normally injected by the workspace manager on the host.
+func resolveBrowserProxy() string {
+	for _, key := range []string{"MEMOH_BROWSER_PROXY", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// chromiumBypassList converts standard NO_PROXY env syntax to chromium's
+// --proxy-bypass-list syntax. The two are nearly identical; the only
+// substantive difference is that NO_PROXY uses ".example.com" as a
+// subdomain prefix while chromium expects "*.example.com".
+func chromiumBypassList(values ...string) string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 8)
+	for _, raw := range values {
+		for _, part := range strings.Split(raw, ",") {
+			entry := strings.TrimSpace(part)
+			if entry == "" {
+				continue
+			}
+			if strings.HasPrefix(entry, ".") {
+				entry = "*" + entry
+			}
+			if _, ok := seen[entry]; ok {
+				continue
+			}
+			seen[entry] = struct{}{}
+			out = append(out, entry)
+		}
+	}
+	return strings.Join(out, ",")
 }
 
 func displayProcessRunning(ctx context.Context, patterns ...string) bool {
