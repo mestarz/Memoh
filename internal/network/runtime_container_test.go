@@ -26,11 +26,6 @@ func TestDescriptorForBackendCapabilities(t *testing.T) {
 			wantKind:          "docker",
 			wantJoinContainer: true,
 		},
-		{
-			name:     "apple",
-			backend:  "apple",
-			wantKind: "apple",
-		},
 	}
 
 	for _, tt := range tests {

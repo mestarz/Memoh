@@ -169,8 +169,8 @@ func provideOverlayProviderRegistry(service ctr.Service, cfg config.Config, rc *
 	return registry
 }
 
-func provideNetworkService(log *slog.Logger, queries dbstore.Queries, registry *netctl.Registry, service ctr.Service, rc *boot.RuntimeConfig, cfg config.Config) *netctl.Service {
-	return netctl.NewService(log, queries, registry, service, rc.ContainerBackend, cfg.Workspace.CNIBinaryDir, cfg.Workspace.CNIConfigDir, cfg.Workspace.DataRoot)
+func provideNetworkService(log *slog.Logger, queries dbstore.Queries, registry *netctl.Registry, service ctr.Service, _ *boot.RuntimeConfig, cfg config.Config) *netctl.Service {
+	return netctl.NewService(log, queries, registry, service, cfg.Workspace.CNIBinaryDir, cfg.Workspace.CNIConfigDir, cfg.Workspace.DataRoot)
 }
 
 func provideDBQueries(cfg config.Config, postgresStore *postgresstore.Store) (dbstore.Queries, error) {

@@ -56,11 +56,7 @@ func (s *Service) workspaceRuntimeStatus(ctx context.Context, botID string) Work
 	out.PID = task.PID
 	if task.Status == ctr.TaskStatusRunning && strings.TrimSpace(task.NetworkJoinTarget.Value) == "" {
 		out.State = "runtime_unavailable"
-		if s.overlayRuntimeUnsupported() {
-			out.Message = "current runtime backend does not expose a joinable network target"
-		} else {
-			out.Message = "workspace task is running but network target metadata is unavailable"
-		}
+		out.Message = "workspace task is running but network target metadata is unavailable"
 		return out
 	}
 	if strings.TrimSpace(task.NetworkJoinTarget.Value) != "" {

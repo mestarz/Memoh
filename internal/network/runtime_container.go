@@ -107,12 +107,6 @@ func descriptorForBackend(backend string) RuntimeDescriptor {
 				JoinContainerNetwork: true,
 			},
 		}
-	case "apple":
-		return RuntimeDescriptor{
-			Kind:         "apple",
-			DisplayName:  "Apple Container",
-			Capabilities: RuntimeCapabilities{},
-		}
 	default:
 		return RuntimeDescriptor{
 			Kind:         normalizeKind(backend),

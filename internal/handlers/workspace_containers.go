@@ -600,9 +600,6 @@ func (h *WorkspaceContainerHandler) StopContainer(c echo.Context) error {
 // @Failure 501 {object} ErrorResponse "Snapshots currently not supported on this backend"
 // @Router /bots/{bot_id}/container/snapshots [post].
 func (h *WorkspaceContainerHandler) CreateSnapshot(c echo.Context) error {
-	if h.containerBackend == "apple" {
-		return echo.NewHTTPError(http.StatusNotImplemented, "snapshots currently not supported on Apple Container backend")
-	}
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
@@ -641,9 +638,6 @@ func (h *WorkspaceContainerHandler) CreateSnapshot(c echo.Context) error {
 // @Failure 501 {object} ErrorResponse "Snapshots currently not supported on this backend"
 // @Router /bots/{bot_id}/container/snapshots [get].
 func (h *WorkspaceContainerHandler) ListSnapshots(c echo.Context) error {
-	if h.containerBackend == "apple" {
-		return echo.NewHTTPError(http.StatusNotImplemented, "snapshots currently not supported on Apple Container backend")
-	}
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err

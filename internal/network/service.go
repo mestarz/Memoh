@@ -24,19 +24,17 @@ type Service struct {
 	registry         *Registry
 	runtime          statusRuntime
 	controller       Controller
-	runtimeKind      string
 	cniBinDir        string
 	cniConfDir       string
 	networkStateRoot string
 	logger           *slog.Logger
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, registry *Registry, runtime statusRuntime, runtimeKind, cniBinDir, cniConfDir, networkStateRoot string) *Service {
+func NewService(log *slog.Logger, queries dbstore.Queries, registry *Registry, runtime statusRuntime, cniBinDir, cniConfDir, networkStateRoot string) *Service {
 	return &Service{
 		queries:          queries,
 		registry:         registry,
 		runtime:          runtime,
-		runtimeKind:      normalizeKind(runtimeKind),
 		cniBinDir:        cniBinDir,
 		cniConfDir:       cniConfDir,
 		networkStateRoot: networkStateRoot,
@@ -111,9 +109,6 @@ func (s *Service) StatusBot(ctx context.Context, botID string) (BotStatus, error
 	}
 	if providerStatus.State != StatusStateReady {
 		return withWorkspace(botStatusFromProviderStatus(cfg.Provider, providerStatus), ws), nil
-	}
-	if s.overlayRuntimeUnsupported() {
-		return withWorkspace(composeBotStatus(cfg, unsupportedOverlayStatus(cfg)), ws), nil
 	}
 	overlayStatus, err := s.statusOverlayBot(ctx, botID, cfg)
 	if err != nil {
@@ -278,9 +273,6 @@ func (s *Service) statusOverlayBot(ctx context.Context, botID string, cfg BotOve
 	if err != nil {
 		return OverlayStatus{}, err
 	}
-	if s.overlayRuntimeUnsupported() {
-		return unsupportedOverlayStatus(cfg), nil
-	}
 	attachmentStatus, err := s.controller.Status(ctx, req)
 	if err != nil {
 		return OverlayStatus{}, err
@@ -335,10 +327,6 @@ func (s *Service) ensureOverlayBot(ctx context.Context, botID string, cfg BotOve
 	if err != nil {
 		return OverlayStatus{}, err
 	}
-	if s.overlayRuntimeUnsupported() {
-		s.logger.Info("skip overlay ensure because current runtime backend does not support provider sidecars", slog.String("bot_id", botID), slog.String("provider", cfg.Provider), slog.String("runtime", s.runtimeKind))
-		return unsupportedOverlayStatus(cfg), nil
-	}
 	if strings.TrimSpace(req.Runtime.JoinTarget.Path) == "" {
 		s.logger.Info("skip overlay ensure because workspace task is not running", slog.String("bot_id", botID), slog.String("provider", cfg.Provider))
 		attachmentStatus, statusErr := s.controller.Status(ctx, req)
@@ -362,18 +350,6 @@ func (s *Service) detachOverlayBot(ctx context.Context, botID string, cfg BotOve
 	}
 	req.OverlayOnly = true
 	return s.controller.Detach(ctx, req)
-}
-
-func (s *Service) overlayRuntimeUnsupported() bool {
-	return s.runtimeKind == "apple"
-}
-
-func unsupportedOverlayStatus(cfg BotOverlayConfig) OverlayStatus {
-	return OverlayStatus{
-		Provider: cfg.Provider,
-		State:    "unsupported",
-		Message:  "Provider-backed network sidecars are not supported on the current runtime backend.",
-	}
 }
 
 func botStatusFromProviderStatus(provider string, status ProviderStatus) BotStatus {
