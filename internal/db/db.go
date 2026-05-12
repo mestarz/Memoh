@@ -10,14 +10,10 @@ import (
 )
 
 func Open(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
-	switch driver := DriverFromConfig(cfg); driver {
-	case DriverPostgres:
-		return OpenPostgres(ctx, cfg.Postgres)
-	case DriverSQLite:
-		return nil, nil
-	default:
-		return nil, fmt.Errorf("unsupported database driver %q", driver)
+	if driver := DriverFromConfig(cfg); driver != DriverPostgres {
+		return nil, fmt.Errorf("unsupported database driver %q (only %q is supported)", driver, DriverPostgres)
 	}
+	return OpenPostgres(ctx, cfg.Postgres)
 }
 
 func OpenPostgres(ctx context.Context, cfg config.PostgresConfig) (*pgxpool.Pool, error) {

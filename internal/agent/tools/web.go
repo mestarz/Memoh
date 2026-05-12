@@ -139,9 +139,7 @@ func registerSearchProviderSecrets(provider sqlc.SearchProvider) {
 			secrets = append(secrets, strings.TrimSpace(v))
 		}
 	}
-	for _, key := range websearch.TavilyAPIKeyPool(cfg) {
-		secrets = append(secrets, key)
-	}
+	secrets = append(secrets, websearch.TavilyAPIKeyPool(cfg)...)
 	if len(secrets) > 0 {
 		channel.SetIMErrorSecrets("search:"+provider.ID.String(), secrets...)
 	}

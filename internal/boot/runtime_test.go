@@ -16,11 +16,7 @@ func TestProvideRuntimeConfig_DefaultTimezone(t *testing.T) {
 		},
 		Timezone: config.DefaultTimezone,
 		Container: config.ContainerConfig{
-			Backend: "containerd",
-		},
-		Containerd: config.ContainerdConfig{
-			SocketPath: "/run/containerd/containerd.sock",
-			Namespace:  "default",
+			Backend: "docker",
 		},
 		Server: config.ServerConfig{
 			Addr: ":8080",
@@ -52,11 +48,7 @@ func TestProvideRuntimeConfig_ResolvesTZEnv(t *testing.T) {
 		},
 		Timezone: "UTC",
 		Container: config.ContainerConfig{
-			Backend: "containerd",
-		},
-		Containerd: config.ContainerdConfig{
-			SocketPath: "/run/containerd/containerd.sock",
-			Namespace:  "default",
+			Backend: "docker",
 		},
 		Server: config.ServerConfig{
 			Addr: ":8080",
@@ -91,7 +83,7 @@ func TestProvideRuntimeConfigRequiresContainerBackend(t *testing.T) {
 	}
 }
 
-func TestProvideRuntimeConfigNormalizesK8sBackend(t *testing.T) {
+func TestProvideRuntimeConfigRejectsNonDockerBackend(t *testing.T) {
 	cfg := config.Config{
 		Auth: config.AuthConfig{
 			JWTSecret:    "secret",
@@ -102,12 +94,8 @@ func TestProvideRuntimeConfigNormalizesK8sBackend(t *testing.T) {
 			Backend: "k8s",
 		},
 	}
-	rc, err := ProvideRuntimeConfig(cfg)
-	if err != nil {
-		t.Fatalf("ProvideRuntimeConfig returned error: %v", err)
-	}
-	if rc.ContainerBackend != "kubernetes" {
-		t.Fatalf("ContainerBackend = %q, want kubernetes", rc.ContainerBackend)
+	if _, err := ProvideRuntimeConfig(cfg); err == nil {
+		t.Fatal("expected non-docker backend to be rejected")
 	}
 }
 

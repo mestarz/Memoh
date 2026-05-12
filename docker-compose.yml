@@ -1,4 +1,15 @@
 name: "memoh"
+
+# Memoh infrastructure stack (production / single-host).
+#
+# The Memoh server now runs as a *local process* on the host (see `memoh start`
+# from `cmd/memoh`). This compose file only provisions the supporting
+# infrastructure: PostgreSQL, Qdrant, the sparse encoder, and the headless
+# browser worker. Bot workspace containers are managed directly by the local
+# server through the host Docker socket.
+#
+# All services bind to 127.0.0.1 only so they are not exposed publicly.
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -10,8 +21,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
       - /etc/localtime:/etc/localtime:ro
-    expose:
-      - "5432"
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U memoh"]
       interval: 10s
@@ -21,92 +32,33 @@ services:
     networks:
       - memoh-network
 
-  migrate:
-    image: memohai/server:local
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.server
-      args:
-        VERSION: ${VERSION:-dev}
-        COMMIT_HASH: ${COMMIT_HASH:-unknown}
-        BUILD_TIME: ${BUILD_TIME:-unknown}
-    container_name: memoh-migrate
-    entrypoint: ["/app/memoh-server", "migrate", "up"]
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: memoh-qdrant
     volumes:
-      - ${MEMOH_CONFIG:-./config.toml}:/app/config.toml:ro
-      # Required for SQLite: migrations must write to the same persistent
-      # database file later opened by the server container.
-      - memoh_data:/opt/memoh/data
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-    networks:
-      - memoh-network
-
-  server:
-    image: memohai/server:local
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.server
-      args:
-        VERSION: ${VERSION:-dev}
-        COMMIT_HASH: ${COMMIT_HASH:-unknown}
-        BUILD_TIME: ${BUILD_TIME:-unknown}
-    container_name: memoh-server
-    privileged: true
-    pid: host
-    environment:
-      MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN: "${MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN:-30000}"
-      MEMOH_DISPLAY_WEBRTC_UDP_PORT_MAX: "${MEMOH_DISPLAY_WEBRTC_UDP_PORT_MAX:-30100}"
-      MEMOH_DISPLAY_WEBRTC_NAT_IPS: "${HOST_IP:-}"
-      MEMOH_PULL_PROXY: "${CONTAINER_HTTP_PROXY:-}"
-      MEMOH_WORKSPACE_PROXY: "${CONTAINER_HTTP_PROXY:-}"
-    volumes:
-      - ${MEMOH_CONFIG:-./config.toml}:/app/config.toml:ro
-      - ./conf/providers:/app/conf/providers:ro
-      - containerd_data:/var/lib/containerd
-      - server_cni_state:/var/lib/cni
-      - memoh_data:/opt/memoh/data
-      # Expose host CDI specs to the nested containerd used for bot workspaces.
-      - /etc/cdi:/etc/cdi:ro
-      - /var/run/cdi:/var/run/cdi:ro
-      - /etc/localtime:/etc/localtime:ro
+      - qdrant_data:/qdrant/storage
     ports:
-      - "8080:8080"
-      - "1455:8080"
-      - "${MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN:-30000}-${MEMOH_DISPLAY_WEBRTC_UDP_PORT_MAX:-30100}:${MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN:-30000}-${MEMOH_DISPLAY_WEBRTC_UDP_PORT_MAX:-30100}/udp"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    restart: unless-stopped
-    networks:
-      - memoh-network
-
-  web:
-    image: memohai/web:local
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.web
-      args:
-        VERSION: ${VERSION:-dev}
-    container_name: memoh-web
-    ports:
-      - "8082:8082"
-    depends_on:
-      - server
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     networks:
       - memoh-network
 
   sparse:
     image: memohai/sparse:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sparse
     container_name: memoh-sparse
-    profiles: [sparse]
     volumes:
       - /etc/localtime:/etc/localtime:ro
-    expose:
-      - "8085"
+    ports:
+      - "127.0.0.1:8085:8085"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/health')\" || exit 1"]
       interval: 15s
@@ -120,17 +72,14 @@ services:
   browser:
     image: memohai/browser:latest
     container_name: memoh-browser
-    profiles: [browser]
     environment:
       BROWSER_CORES: ${BROWSER_CORES:-chromium,firefox}
       http_proxy: "${CONTAINER_HTTP_PROXY:-}"
       https_proxy: "${CONTAINER_HTTP_PROXY:-}"
       HTTP_PROXY: "${CONTAINER_HTTP_PROXY:-}"
       HTTPS_PROXY: "${CONTAINER_HTTP_PROXY:-}"
-    volumes:
-      - ./config.toml:/config.toml:ro
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8083/health || exit 1"]
       interval: 15s
@@ -141,36 +90,10 @@ services:
     networks:
       - memoh-network
 
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: memoh-qdrant
-    profiles: [qdrant, sparse]
-    volumes:
-      - qdrant_data:/qdrant/storage
-    expose:
-      - "6333"
-      - "6334"
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 10s bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - memoh-network
-
 volumes:
   postgres_data:
     driver: local
-  containerd_data:
-    driver: local
-  memoh_data:
-    driver: local
-  server_cni_state:
-    driver: local
   qdrant_data:
-    driver: local
-  openviking_data:
     driver: local
 
 networks:

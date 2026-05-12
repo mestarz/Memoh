@@ -882,7 +882,6 @@ func (h *LocalChannelHandler) ingestMessageAttachments(ctx context.Context, botI
 	return result
 }
 
-
 // injecting attachment_delta events with the resulting voice attachments.
 func (h *LocalChannelHandler) wsSynthesizeSpeech(ctx context.Context, botID string, original json.RawMessage) []json.RawMessage {
 	if h.speechService == nil || h.speechModelResolver == nil {

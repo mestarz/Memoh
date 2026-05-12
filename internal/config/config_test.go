@@ -150,29 +150,16 @@ binary_path = "/opt/homebrew/bin/socktainer"
 	}
 }
 
-func TestLoadAppLocalTemplate(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "..", "conf", "app.local.toml"))
+func TestLoadAppExampleTemplate(t *testing.T) {
+	cfg, err := Load(filepath.Join("..", "..", "conf", "app.example.toml"))
 	if err != nil {
-		t.Fatalf("read app.local.toml: %v", err)
-	}
-	rendered := strings.ReplaceAll(string(raw), "__PROJECT_ROOT__", filepath.ToSlash(filepath.Join("..", "..")))
-	configPath := filepath.Join(t.TempDir(), "app.local.toml")
-	//nolint:gosec // configPath is rooted at t.TempDir() with a literal filename; the rendered template content is not used as a path.
-	if err := os.WriteFile(configPath, []byte(rendered), 0o600); err != nil {
-		t.Fatalf("write rendered app.local.toml: %v", err)
-	}
-	cfg, err := Load(configPath)
-	if err != nil {
-		t.Fatalf("load app.local.toml: %v", err)
+		t.Fatalf("load app.example.toml: %v", err)
 	}
 	if cfg.Container.Backend != "docker" {
 		t.Fatalf("container backend = %q, want docker", cfg.Container.Backend)
 	}
-	if !cfg.Local.Enabled {
-		t.Fatal("local workspace should be enabled")
-	}
-	if cfg.Database.DriverOrDefault() != "sqlite" {
-		t.Fatalf("database driver = %q, want sqlite", cfg.Database.DriverOrDefault())
+	if cfg.Database.DriverOrDefault() != "postgres" {
+		t.Fatalf("database driver = %q, want postgres", cfg.Database.DriverOrDefault())
 	}
 }
 

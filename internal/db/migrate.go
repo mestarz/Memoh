@@ -1,7 +1,6 @@
 package db
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,7 +9,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	// Register postgres driver for golang-migrate.
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
@@ -142,17 +140,8 @@ func ReadMigrationStatusTarget(target MigrationTarget, migrationsFS fs.FS) (Migr
 }
 
 func newMigrateForTarget(target MigrationTarget, sourceDriver source.Driver) (*migrate.Migrate, error) {
-	if target.Driver == DriverSQLite {
-		db, err := OpenSQLite(context.Background(), config.SQLiteConfig{DSN: target.DSN})
-		if err != nil {
-			return nil, err
-		}
-		dbDriver, err := migratesqlite.WithInstance(db, &migratesqlite.Config{})
-		if err != nil {
-			_ = db.Close()
-			return nil, err
-		}
-		return migrate.NewWithInstance("iofs", sourceDriver, DriverSQLite, dbDriver)
+	if target.Driver != DriverPostgres {
+		return nil, fmt.Errorf("unsupported database driver %q (only %q is supported)", target.Driver, DriverPostgres)
 	}
 	return migrate.NewWithSourceInstance("iofs", sourceDriver, target.DSN)
 }

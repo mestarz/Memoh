@@ -631,7 +631,7 @@ func (s *Service) resolveOptionalModelField(ctx context.Context, reqField *strin
 //   - nil (field absent) → preserve existing value
 //   - "" (empty string) → clear (NULL)
 //   - non-empty UUID string → parse and set
-func (s *Service) resolveOptionalProviderField(reqField *string, existing pgtype.UUID) (pgtype.UUID, error) {
+func (*Service) resolveOptionalProviderField(reqField *string, existing pgtype.UUID) (pgtype.UUID, error) {
 	if reqField == nil {
 		return existing, nil
 	}

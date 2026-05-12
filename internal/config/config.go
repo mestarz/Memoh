@@ -273,8 +273,8 @@ type SparseConfig struct {
 const DefaultProvidersDir = "conf/providers"
 
 type RegistryConfig struct {
-	ProvidersDir       string `toml:"providers_dir"`
-	DisableModelSync   bool   `toml:"disable_model_sync"`
+	ProvidersDir     string `toml:"providers_dir"`
+	DisableModelSync bool   `toml:"disable_model_sync"`
 }
 
 // ProvidersPath returns the configured providers directory or the default.
