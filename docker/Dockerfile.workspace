@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1
+#
+# Reference base image for Memoh bot workspace containers.
+#
+# Memoh injects the bridge binary together with a self-contained toolkit
+# (Node.js glibc+musl, npm, npx, uv, uvx, Xvnc, twm, xterm, xkbcomp,
+# xsetroot) into every workspace under /opt/memoh/toolkit via a read-only
+# bind mount, so this image only needs to provide the surrounding OS
+# userland — basic shell utilities, CA roots, fonts, and (optionally) a
+# desktop-capable browser for the remote-desktop feature.
+#
+# Build:
+#   docker build -f docker/Dockerfile.workspace -t memoh/workspace:debian .
+#
+# Use:
+#   In config.toml -> [container].default_image = "memoh/workspace:debian"
+#   Or per-bot via the workspace image preference UI.
+#
+# The default base image used by Memoh when this is unset is
+# debian:bookworm-slim (see config.DefaultBaseImage). Staying on that
+# distro keeps the prepare-display script's apt fallback path working.
+
+FROM debian:bookworm-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+# Set CHROMIUM=1 to bake Chromium into the image. Leave unset to let
+# Memoh's display prepare script install it on first desktop launch.
+ARG CHROMIUM=0
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        # Required by bridge + display prepare scripts
+        ca-certificates \
+        bash coreutils procps findutils grep sed gawk \
+        # Init for clean signal handling / zombie reaping
+        tini \
+        # Common dev tooling that bots and skills typically expect
+        git curl wget tar xz-utils unzip jq \
+        # Locale + timezone (Asia/Shanghai friendly default)
+        locales tzdata \
+        # Fonts (CJK + emoji) needed for browser/desktop screenshots
+        fontconfig fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji \
+        # X11/Chromium runtime libraries (Xvnc is injected, these are
+        # browser/window-manager dependencies)
+        xauth xdg-utils \
+        libnss3 libxss1 libgbm1 libasound2 libdrm2 \
+        libatk1.0-0 libatk-bridge2.0-0 libxcomposite1 libxdamage1 \
+        libxrandr2 libxkbcommon0 libpango-1.0-0 libpangocairo-1.0-0 \
+        libcups2 libxshmfence1 \
+        # Optional but useful for native node modules / python deps
+        python3 python3-venv \
+    ; \
+    if [ "$CHROMIUM" = "1" ]; then \
+        apt-get install -y --no-install-recommends chromium; \
+    fi; \
+    sed -i 's/^# *\(en_US.UTF-8\|zh_CN.UTF-8\)/\1/' /etc/locale.gen; \
+    locale-gen; \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    TZ=Asia/Shanghai \
+    # Make the injected toolkit visible in the default PATH so that
+    # interactive shells, Makefiles, and skill scripts find npx/uvx
+    # without needing to source anything. Bridge also prepends/appends
+    # this path at runtime; duplicating it here is safe.
+    PATH=/opt/memoh/toolkit/bin:/opt/memoh/toolkit:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Memoh creates these mount points lazily; pre-creating them keeps
+# permissions sane and avoids racy mkdir from concurrent prepare scripts.
+RUN set -eux; \
+    mkdir -p /opt/memoh /tmp/.X11-unix /run/memoh /workspace; \
+    chmod 1777 /tmp/.X11-unix
+
+WORKDIR /workspace
+
+# tini as PID 1 so the long-running bridge process gets clean signal
+# forwarding and zombie reaping.
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Memoh overrides CMD with the bridge invocation; this default keeps the
+# image directly runnable for debugging.
+CMD ["bash"]
