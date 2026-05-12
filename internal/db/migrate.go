@@ -24,18 +24,6 @@ type MigrationStatus struct {
 // The migrationsFS should contain .sql files at its root (not in a subdirectory).
 // Supported commands: "up", "down", "version", "force N".
 func RunMigrate(logger *slog.Logger, cfg config.PostgresConfig, migrationsFS fs.FS, command string, args []string) error {
-	return RunMigrateTarget(logger, MigrationTarget{Driver: DriverPostgres, DSN: DSN(cfg)}, migrationsFS, command, args)
-}
-
-func RunMigrateConfig(logger *slog.Logger, cfg config.Config, migrationsFS fs.FS, command string, args []string) error {
-	target, err := MigrationTargetFromConfig(cfg)
-	if err != nil {
-		return err
-	}
-	return RunMigrateTarget(logger, target, migrationsFS, command, args)
-}
-
-func RunMigrateTarget(logger *slog.Logger, target MigrationTarget, migrationsFS fs.FS, command string, args []string) error {
 	switch command {
 	case "up", "down", "version", "force":
 	default:
@@ -44,8 +32,9 @@ func RunMigrateTarget(logger *slog.Logger, target MigrationTarget, migrationsFS 
 	if command == "force" && len(args) == 0 {
 		return errors.New("force requires a version number argument")
 	}
-	if target.DSN == "" {
-		return errors.New("migration target DSN is empty")
+	dsn := DSN(cfg)
+	if dsn == "" {
+		return errors.New("postgres DSN is empty")
 	}
 	if logger == nil {
 		logger = slog.Default()
@@ -56,7 +45,7 @@ func RunMigrateTarget(logger *slog.Logger, target MigrationTarget, migrationsFS 
 		return fmt.Errorf("migration source: %w", err)
 	}
 
-	m, err := newMigrateForTarget(target, sourceDriver)
+	m, err := newMigrate(dsn, sourceDriver)
 	if err != nil {
 		return fmt.Errorf("migrate init: %w", err)
 	}
@@ -99,28 +88,21 @@ func RunMigrateTarget(logger *slog.Logger, target MigrationTarget, migrationsFS 
 	return nil
 }
 
+func RunMigrateConfig(logger *slog.Logger, cfg config.Config, migrationsFS fs.FS, command string, args []string) error {
+	return RunMigrate(logger, cfg.Postgres, migrationsFS, command, args)
+}
+
 func ReadMigrationStatus(cfg config.PostgresConfig, migrationsFS fs.FS) (MigrationStatus, error) {
-	return ReadMigrationStatusTarget(MigrationTarget{Driver: DriverPostgres, DSN: DSN(cfg)}, migrationsFS)
-}
-
-func ReadMigrationStatusConfig(cfg config.Config, migrationsFS fs.FS) (MigrationStatus, error) {
-	target, err := MigrationTargetFromConfig(cfg)
-	if err != nil {
-		return MigrationStatus{}, err
-	}
-	return ReadMigrationStatusTarget(target, migrationsFS)
-}
-
-func ReadMigrationStatusTarget(target MigrationTarget, migrationsFS fs.FS) (MigrationStatus, error) {
-	if target.DSN == "" {
-		return MigrationStatus{}, errors.New("migration target DSN is empty")
+	dsn := DSN(cfg)
+	if dsn == "" {
+		return MigrationStatus{}, errors.New("postgres DSN is empty")
 	}
 	sourceDriver, err := iofs.New(migrationsFS, ".")
 	if err != nil {
 		return MigrationStatus{}, fmt.Errorf("migration source: %w", err)
 	}
 
-	m, err := newMigrateForTarget(target, sourceDriver)
+	m, err := newMigrate(dsn, sourceDriver)
 	if err != nil {
 		return MigrationStatus{}, fmt.Errorf("migrate init: %w", err)
 	}
@@ -139,11 +121,12 @@ func ReadMigrationStatusTarget(target MigrationTarget, migrationsFS fs.FS) (Migr
 	}, nil
 }
 
-func newMigrateForTarget(target MigrationTarget, sourceDriver source.Driver) (*migrate.Migrate, error) {
-	if target.Driver != DriverPostgres {
-		return nil, fmt.Errorf("unsupported database driver %q (only %q is supported)", target.Driver, DriverPostgres)
-	}
-	return migrate.NewWithSourceInstance("iofs", sourceDriver, target.DSN)
+func ReadMigrationStatusConfig(cfg config.Config, migrationsFS fs.FS) (MigrationStatus, error) {
+	return ReadMigrationStatus(cfg.Postgres, migrationsFS)
+}
+
+func newMigrate(dsn string, sourceDriver source.Driver) (*migrate.Migrate, error) {
+	return migrate.NewWithSourceInstance("iofs", sourceDriver, dsn)
 }
 
 type migrateLogger struct {

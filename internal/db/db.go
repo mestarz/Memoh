@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -10,9 +9,6 @@ import (
 )
 
 func Open(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
-	if driver := DriverFromConfig(cfg); driver != DriverPostgres {
-		return nil, fmt.Errorf("unsupported database driver %q (only %q is supported)", driver, DriverPostgres)
-	}
 	return OpenPostgres(ctx, cfg.Postgres)
 }
 

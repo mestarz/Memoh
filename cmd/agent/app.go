@@ -173,20 +173,14 @@ func provideNetworkService(log *slog.Logger, queries dbstore.Queries, registry *
 	return netctl.NewService(log, queries, registry, service, cfg.Workspace.CNIBinaryDir, cfg.Workspace.CNIConfigDir, cfg.Workspace.DataRoot)
 }
 
-func provideDBQueries(cfg config.Config, postgresStore *postgresstore.Store) (dbstore.Queries, error) {
-	if driver := db.DriverFromConfig(cfg); driver != db.DriverPostgres {
-		return nil, fmt.Errorf("unsupported database driver %q", driver)
-	}
+func provideDBQueries(_ config.Config, postgresStore *postgresstore.Store) (dbstore.Queries, error) {
 	if postgresStore == nil {
 		return nil, errors.New("postgres store not configured")
 	}
 	return postgresstore.NewQueries(postgresStore.SQLC()), nil
 }
 
-func provideAccountStore(cfg config.Config, postgresStore *postgresstore.Store) (dbstore.AccountStore, error) {
-	if driver := db.DriverFromConfig(cfg); driver != db.DriverPostgres {
-		return nil, fmt.Errorf("unsupported database driver %q", driver)
-	}
+func provideAccountStore(_ config.Config, postgresStore *postgresstore.Store) (dbstore.AccountStore, error) {
 	if postgresStore == nil {
 		return nil, errors.New("postgres account store not configured")
 	}

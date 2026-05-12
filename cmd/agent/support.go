@@ -22,8 +22,8 @@ func provideConfig() (config.Config, error) {
 	return cfg, nil
 }
 
-func migrationsFS(cfg config.Config) fs.FS {
-	sub, err := db.MigrationsFSForConfig(cfg, dbembed.MigrationsFS)
+func migrationsFS(_ config.Config) fs.FS {
+	sub, err := db.MigrationsFS(dbembed.MigrationsFS)
 	if err != nil {
 		panic(fmt.Sprintf("embedded migrations: %v", err))
 	}
